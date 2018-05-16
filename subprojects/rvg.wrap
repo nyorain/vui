@@ -1,0 +1,5 @@
+[wrap-git]
+directory=rvg
+url=https://github.com/nyorain/rvg.git
+revision=master
+
