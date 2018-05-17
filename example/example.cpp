@@ -233,7 +233,8 @@ int main() {
 	styles.checkbox.fg = &svgPaint;
 
 	// gui
-	vui::Gui gui(ctx, lsFont, std::move(styles));
+	// vui::Gui gui(ctx, lsFont, std::move(styles));
+	vui::Gui gui(ctx, lsFont);
 
 	auto& win = gui.create<vui::Window>(nytl::Rect2f {100, 100, 500, 880});
 	auto& button = win.create<vui::LabeledButton>("button, waddup");

@@ -357,8 +357,11 @@ Panel::Panel(Gui& gui, const nytl::Rect2f& bounds, float rowHeight) :
 	paints_.bgWidget = {context(), rvg::colorPaint(bgWidget)};
 
 	// styles
+	auto yoff = ((rowHeight_ - 4.f) - gui.font().height()) / 2.f;
+	auto xoff = std::max(yoff * 1.5f, 2.f);
 	styles_.textfield = gui.styles().textfield;
 	styles_.textfield.bg = &paints_.bgWidget;
+	styles_.textfield.padding = {xoff, yoff};
 
 	// toggle button
 	auto btnBounds = Rect2f{position(), {width(), rowHeight_}};

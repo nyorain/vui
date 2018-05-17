@@ -15,9 +15,16 @@ GuiListener& GuiListener::nop() {
 
 // Gui
 Gui::Gui(Context& ctx, const Font& font, Styles&& s, GuiListener& listener)
-	: WidgetContainer(*this),  context_(ctx), font_(font), listener_(listener),
-		styles_(std::move(s)) {
+		: WidgetContainer(*this),  context_(ctx), font_(font),
+			listener_(listener), styles_(std::move(s)) {
 	nytl::identity(transform_);
+}
+
+Gui::Gui(Context& ctx, const Font& font, GuiListener& listener)
+		: WidgetContainer(*this),  context_(ctx), font_(font),
+			listener_(listener) {
+	defaultStyles_.emplace(ctx);
+	styles_ = defaultStyles_->styles();
 }
 
 void Gui::transform(const nytl::Mat4f& mat) {

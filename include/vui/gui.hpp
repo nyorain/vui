@@ -59,6 +59,8 @@ public:
 	static constexpr auto hintOffset = Vec {20.f, 5.f}; // seconds
 
 public:
+	Gui(Context& context, const Font& font,
+		GuiListener& listener = GuiListener::nop());
 	Gui(Context& context, const Font& font, Styles&& s,
 		GuiListener& listener = GuiListener::nop());
 
@@ -112,6 +114,8 @@ protected:
 	std::pair<Widget*, MouseButton> buttonGrab_ {};
 	bool rerecord_ {};
 	nytl::Mat4f transform_ {};
+
+	std::optional<DefaultStyles> defaultStyles_;
 	Styles styles_;
 
 	Widget* focusWidget_ {};

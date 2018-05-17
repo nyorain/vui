@@ -99,12 +99,36 @@ struct Styles {
 	LabeledButtonStyle labeledButton {};
 	TextfieldStyle textfield {};
 	WindowStyle window {};
-	SliderStyle slider {};
+	// SliderStyle slider {};
 	HintStyle hint {};
 	ColorPickerStyle colorPicker {};
 	ColorButtonStyle colorButton {};
 	PaneStyle pane {};
 	CheckboxStyle checkbox {};
+};
+
+class DefaultStyles {
+public:
+	DefaultStyles(rvg::Context&);
+
+	auto& paints() const { return paints_; }
+	auto& paints() { return paints_; }
+
+	const Styles& styles() const { return styles_; }
+	Styles& styles() { return styles_; }
+
+protected:
+	struct {
+		rvg::Paint text;
+		rvg::Paint bg;
+		rvg::Paint bgAlpha;
+		rvg::Paint bgHover;
+		rvg::Paint bgActive;
+		rvg::Paint border;
+		rvg::Paint accent;
+	} paints_;
+
+	Styles styles_;
 };
 
 } // namespace vui

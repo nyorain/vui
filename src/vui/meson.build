@@ -6,6 +6,7 @@ vui_src = [
 	'dat.cpp',
 	'gui.cpp',
 	'hint.cpp',
+	'style.cpp',
 	'textfield.cpp',
 	'widget.cpp',
 	'window.cpp',

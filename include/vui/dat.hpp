@@ -94,6 +94,9 @@ public:
 	void draw(vk::CommandBuffer) const override;
 	void refreshTransform() override;
 
+	auto& textfield() const { return *textfield_; }
+	auto& textfield() { return *textfield_; }
+
 protected:
 	std::optional<vui::Textfield> textfield_;
 	bool focus_ {};
@@ -127,6 +130,9 @@ public:
 	void position(Vec2f position) override;
 	void intersectScissor(const Rect2f& scissor) override;
 	using Controller::position;
+
+	auto& checkbox() const { return *checkbox_; }
+	auto& checkbox() { return *checkbox_; }
 
 protected:
 	std::optional<vui::Checkbox> checkbox_;
