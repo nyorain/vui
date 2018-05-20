@@ -70,9 +70,20 @@ void Textfield::utf32(std::u32string_view) {
 void Textfield::hide(bool hide) {
 	bg_.disable(hide);
 	text_.disable(hide);
-	cursor_.disable(hide);
-	selection_.bg.disable(hide);
-	selection_.text.disable(hide);
+
+	if(hide) {
+		cursor_.disable(true);
+	} else if(focus_) {
+		cursor_.disable(false);
+	}
+
+	if(hide) {
+		selection_.bg.disable(true);
+		selection_.text.disable(true);
+	} else if(selection_.count) {
+		selection_.bg.disable(false);
+		selection_.text.disable(false);
+	}
 }
 
 bool Textfield::hidden() const {
@@ -84,6 +95,7 @@ Widget* Textfield::mouseButton(const MouseButtonEvent& ev) {
 		return nullptr;
 	}
 
+	focus(true);
 	selecting_ = ev.pressed;
 	if(ev.pressed) {
 		if(selection_.count) {
