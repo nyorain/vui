@@ -104,6 +104,7 @@ public:
 	/// Registers the widget for the next update/updateDevice calls.
 	void addUpdate(Widget&);
 	void addUpdateDevice(Widget&);
+	void moveDestroyWidget(std::unique_ptr<Widget>);
 
 protected:
 	Context& context_;
@@ -114,6 +115,8 @@ protected:
 	std::pair<Widget*, MouseButton> buttonGrab_ {};
 	bool rerecord_ {};
 	nytl::Mat4f transform_ {};
+
+	std::vector<std::unique_ptr<Widget>> destroyWidgets_;
 
 	std::optional<DefaultStyles> defaultStyles_;
 	Styles styles_;

@@ -9,7 +9,7 @@ namespace vui {
 
 struct ButtonDraw {
 	rvg::PaintData bg;
-	std::optional<rvg::PaintData> bgStroke;
+	std::optional<rvg::PaintData> bgStroke {};
 };
 
 struct BasicButtonStyle {
@@ -26,7 +26,18 @@ struct LabeledButtonStyle {
 	const Font* font {};
 };
 
+struct TextfieldDraw {
+	rvg::PaintData bg;
+	rvg::PaintData text;
+	std::optional<rvg::PaintData> bgStroke;
+};
+
 struct TextfieldStyle {
+	// TODO
+	// TextfieldDraw normal;
+	// TextfieldDraw hovered;
+	// TextfieldDraw focused;
+
 	rvg::Paint* text;
 	rvg::Paint* selected;
 	rvg::Paint* bg;

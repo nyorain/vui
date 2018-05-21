@@ -123,9 +123,7 @@ void ContainerWidget::position(Vec2f pos) {
 		dlg_assert(w);
 		auto rel = w->position() - old;
 		w->position(pos + rel);
-
-		// TODO
-		// w->intersectScissor(scissor());
+		w->intersectScissor(scissor());
 	}
 }
 

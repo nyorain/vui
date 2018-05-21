@@ -168,6 +168,8 @@ void LabeledButton::size(Vec2f size) {
 		size.y = textSize.y + 2 * style().padding.y;
 	}
 
+	tc->position.x = std::max(tc->position.y, 10.f);
+
 	// resizes scissor
 	BasicButton::size(size);
 }

@@ -170,9 +170,7 @@ public:
 	void toggle() { open(!open_); }
 
 	void refreshLayout();
-
-	// TODO
-	// void remove(Widget&);
+	bool remove(const Widget&);
 
 	// for controllers
 	const auto& paints() const { return paints_; }
@@ -183,7 +181,7 @@ protected:
 
 protected:
 	float rowHeight_ {};
-	float nameWidth_ {150.f};
+	float nameWidth_ {100.f};
 	bool open_ {true};
 	LabeledButton* toggleButton_ {};
 
@@ -194,6 +192,7 @@ protected:
 
 		rvg::Paint name;
 		rvg::Paint line;
+		rvg::Paint folderLine;
 		rvg::Paint buttonClass;
 		rvg::Paint textClass;
 		rvg::Paint labelClass;
@@ -204,6 +203,8 @@ protected:
 	} paints_;
 
 	struct {
+		BasicButtonStyle button;
+		LabeledButtonStyle metaButton;
 		TextfieldStyle textfield;
 	} styles_;
 };
@@ -223,6 +224,8 @@ public:
 	bool hidden() const override;
 	void size(Vec2f) override {} // TODO
 	using Widget::size;
+
+	void draw(vk::CommandBuffer cb) const override;
 
 	template<typename T, typename... Args>
 	T& create(Args&&... args) {
@@ -245,6 +248,7 @@ protected:
 protected:
 	Panel& panel_;
 	LabeledButton* button_;
+	rvg::Shape bottomLine_;
 	bool open_ {true};
 };
 

@@ -8,20 +8,30 @@ namespace vui::dat {
 namespace colors {
 
 const auto name = rvg::Color {255u, 255u, 255u};
-const auto line = rvg::Color {20u, 20u, 20u, 200u};
-const auto button = rvg::Color {200u, 20u, 20u};
-const auto text = rvg::Color {20u, 120u, 20u};
-const auto label = rvg::Color {20u, 120u, 120u};
+// const auto line = rvg::Color {15u, 15u, 15u};
+const auto line = rvg::Color {44u, 44u, 44u};
+// const auto button = rvg::Color {200u, 20u, 20u};
+const auto button = rvg::Color {230u, 29u, 95u};
+// const auto text = rvg::Color {20u, 120u, 20u};
+const auto text = rvg::Color {47u, 161u, 214u};
+const auto label = rvg::Color {36u, 220u, 198u};
 const auto range = rvg::Color {20u, 20u, 120u};
 const auto checkbox = rvg::Color {120u, 20u, 120u};
-const auto bg = rvg::Color {10u, 10u, 10u};
-const auto bgHover = rvg::Color {5u, 5u, 5u};
-const auto bgActive = rvg::Color {2u, 2u, 2u};
-const auto bgWidget = rvg::Color {30u, 30u, 30u};
+const auto bg = rvg::Color {28u, 28u, 28u};
+const auto bgHover = rvg::Color {17u, 17u, 17u};
+const auto bgActive = rvg::Color {10u, 10u, 10u};
+const auto bgWidget = rvg::Color {48u, 48u, 48u};
+
+const auto metaButtonBg = rvg::Color {5u, 5u, 5u};
+const auto metaButtonBgHover = bgHover;
+const auto metaButtonBgPressed = metaButtonBgHover;
+// const auto folderLine = rvg::Color {255u, 255u, 255u, 8u};
+const auto folderLine = rvg::Color {255u, 255u, 255u, 5u};
 
 } // namespace colors
 
-constexpr auto classifierWidth = 2.5f;
+constexpr auto classifierWidth = 2.f;
+constexpr auto lineHeight = 1.f;
 
 // Controller
 Controller::Controller(Panel& panel, Vec2f pos,
@@ -43,7 +53,7 @@ Controller::Controller(Panel& panel, Vec2f pos,
 
 	start = Vec{0.f, size().y};
 	end = Vec{size().x, size().y};
-	bottomLine_ = {ctx, {start, end}, {false, 1.f}};
+	bottomLine_ = {ctx, {start, end}, {false, lineHeight}};
 
 	bg_ = {ctx, {}, size(), {true, 0.f}};
 }
@@ -134,7 +144,7 @@ Widget* Button::mouseButton(const MouseButtonEvent& ev) {
 Textfield::Textfield(Panel& panel, Vec2f pos, std::string_view
 		name, std::string_view start) : Controller(panel, pos, name) {
 
-	auto height = panel.rowHeight() - 4;
+	auto height = panel.rowHeight() - 5;
 	auto width = size().x - panel.nameWidth() - 8;
 	auto tpos = position() + Vec{panel.nameWidth() + 4, 2};
 	auto bounds = Rect2f {tpos, Vec{width, height}};
@@ -247,7 +257,7 @@ void Textfield::intersectScissor(const Rect2f& scissor) {
 Label::Label(Panel& panel, Vec2f pos, std::string_view name,
 		std::string_view label) : Controller(panel, pos, name) {
 
-	auto y = ((panel.rowHeight() - gui().font().height()) / 2);
+	auto y = ((panel.rowHeight() - gui().font().height() - 1) / 2);
 	label_ = {context(), label, gui().font(), {panel.nameWidth() + 4, y}};
 }
 
@@ -275,8 +285,9 @@ void Label::draw(vk::CommandBuffer cb) const {
 Checkbox::Checkbox(Panel& panel, Vec2f pos, std::string_view name) :
 		Controller(panel, pos, name) {
 
-	auto size = panel.rowHeight() - 8;
-	auto cpos = position() + Vec{panel.nameWidth() + 4, 4};
+	auto size = panel.rowHeight() / 2;
+	auto off = panel.rowHeight() / 4;
+	auto cpos = position() + Vec{panel.nameWidth() + 4, off};
 	auto bounds = Rect2f{cpos, Vec{size, size}};
 	checkbox_.emplace(panel.gui(), bounds);
 }
@@ -292,7 +303,7 @@ void Checkbox::hide(bool hide) {
 
 Widget* Checkbox::mouseButton(const MouseButtonEvent& ev) {
 	if(ev.pressed && ev.button == MouseButton::left) {
-		checkbox_->toggle();
+		checkbox_->mouseButton(ev);
 	}
 
 	return this;
@@ -344,6 +355,7 @@ Panel::Panel(Gui& gui, const nytl::Rect2f& bounds, float rowHeight) :
 	using namespace colors;
 	paints_.name = {context(), rvg::colorPaint(name)};
 	paints_.line = {context(), rvg::colorPaint(line)};
+	paints_.folderLine = {context(), rvg::colorPaint(folderLine)};
 	paints_.buttonClass = {context(), rvg::colorPaint(button)};
 	paints_.labelClass = {context(), rvg::colorPaint(label)};
 	paints_.textClass = {context(), rvg::colorPaint(text)};
@@ -363,10 +375,19 @@ Panel::Panel(Gui& gui, const nytl::Rect2f& bounds, float rowHeight) :
 	styles_.textfield.bg = &paints_.bgWidget;
 	styles_.textfield.padding = {xoff, yoff};
 
+	styles_.button = gui.styles().basicButton;
+	styles_.button.normal = {rvg::colorPaint(metaButtonBg)};
+	styles_.button.hovered = {rvg::colorPaint(metaButtonBgHover)};
+	styles_.button.pressed = {rvg::colorPaint(metaButtonBgPressed)};
+	styles_.button.rounding = {};
+
+	styles_.metaButton = gui.styles().labeledButton;
+	styles_.metaButton.basic = &styles_.button;
+
 	// toggle button
 	auto btnBounds = Rect2f{position(), {width(), rowHeight_}};
 	auto btn = std::make_unique<LabeledButton>(gui, btnBounds,
-		"Toggle Controls");
+		"Toggle Controls", styles_.metaButton);
 	toggleButton_ = btn.get();
 	widgets_.push_back(std::move(btn));
 	toggleButton_->onClick = [&](auto&) { this->toggle(); };
@@ -398,7 +419,33 @@ Widget& Panel::add(std::unique_ptr<Widget> ctrl) {
 	auto p = position();
 	toggleButton_->position({p.x, p.y + s.y - rowHeight_});
 
+	// TODO: should prob not be here
+	gui().rerecord();
+
 	return ret;
+}
+
+bool Panel::remove(const Widget& w) {
+	auto it = std::find_if(widgets_.begin(), widgets_.end(),
+		[&](auto& ww){ return ww.get() == &w; });
+	if(it == widgets_.end()) {
+		return false;
+	}
+
+	// TODO!
+	if(focus_ == &w) {
+		focus_ = nullptr;
+	}
+
+	if(mouseOver_ == &w) {
+		mouseOver_ = nullptr;
+	}
+
+	gui().moveDestroyWidget(std::move(*it));
+	widgets_.erase(it);
+	refreshLayout();
+
+	return true;
 }
 
 void Panel::open(bool open) {
@@ -452,17 +499,22 @@ void Panel::refreshLayout() {
 // Folder
 Folder::Folder(Panel& panel, Vec2f pos, std::string_view name) :
 	ContainerWidget(panel.gui(), {pos,
-			{panel.position().x + panel.width() - pos.x, panel.rowHeight()}}),
+			{panel.position().x + panel.width() - pos.x, 0}}),
 		panel_(panel) {
 
 	auto btnBounds = Rect2f{position(), {size().x, panel.rowHeight()}};
-	auto btn = std::make_unique<LabeledButton>(gui(), btnBounds, name);
+	auto btn = std::make_unique<LabeledButton>(gui(), btnBounds, name,
+		panel_.styles().metaButton);
 	button_ = btn.get();
 	add(std::move(btn));
 	button_->onClick = [&](auto&) { this->toggle(); };
+
+	auto points = {{0.f, size().y}, size()};
+	bottomLine_ = {context(), points, {false, lineHeight}};
 }
 
 void Folder::hide(bool hide) {
+	bottomLine_.disable(hide);
 	if(!hide && !open_) {
 		button_->hide(false);
 	} else {
@@ -534,6 +586,14 @@ void Folder::refreshLayout() {
 	if(open_ && y != size().y) {
 		Widget::size({size().x, y - position().y});
 	}
+}
+
+void Folder::draw(vk::CommandBuffer cb) const {
+	ContainerWidget::draw(cb);
+
+	bindState(cb);
+	panel().paints().folderLine.bind(cb);
+	bottomLine_.stroke(cb);
 }
 
 } // namespace vui::dat

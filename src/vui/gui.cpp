@@ -103,10 +103,35 @@ bool Gui::updateDevice() {
 		rerecord |= widget->updateDevice();
 	}
 
+	if(!destroyWidgets_.empty()) {
+		destroyWidgets_.clear();
+		rerecord = true;
+	}
+
 	rerecord_ = false;
 	return rerecord;
 }
 
+void Gui::moveDestroyWidget(std::unique_ptr<Widget> w) {
+	dlg_assert(w);
+
+	// TODO: hack atm
+	// we want to remove all this stuff for ALL (sub-)children of w
+
+	// if(focusWidget_ == w.get()) {
+		focusWidget_ = nullptr;
+	// }
+
+	// if(mouseOverWidget_ == w.get()) {
+		mouseOverWidget_ = nullptr;
+	// }
+
+	// if(buttonGrab_.first == w.get()) {
+		buttonGrab_ = {};
+	// }
+
+	destroyWidgets_.emplace_back(std::move(w));
+}
 void Gui::addUpdate(Widget& widget) {
 	update_.insert(&widget);
 }
