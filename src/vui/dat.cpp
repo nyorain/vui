@@ -17,8 +17,8 @@ const auto text = rvg::Color {47u, 161u, 214u};
 const auto label = rvg::Color {36u, 220u, 198u};
 const auto range = rvg::Color {20u, 20u, 120u};
 const auto checkbox = rvg::Color {120u, 20u, 120u};
-const auto bg = rvg::Color {28u, 28u, 28u};
-const auto bgHover = rvg::Color {17u, 17u, 17u};
+const auto bg = rvg::Color {40u, 40u, 40u};
+const auto bgHover = rvg::Color {25u, 25u, 25u};
 const auto bgActive = rvg::Color {10u, 10u, 10u};
 const auto bgWidget = rvg::Color {48u, 48u, 48u};
 
@@ -290,6 +290,15 @@ Checkbox::Checkbox(Panel& panel, Vec2f pos, std::string_view name) :
 	auto cpos = position() + Vec{panel.nameWidth() + 4, off};
 	auto bounds = Rect2f{cpos, Vec{size, size}};
 	checkbox_.emplace(panel.gui(), bounds);
+	bgColor_ = {context(), rvg::colorPaint(colors::bg)};
+}
+
+void Checkbox::mouseOver(bool gained) {
+	if(gained) {
+		bgColor_.paint(rvg::colorPaint(colors::bgHover));
+	} else {
+		bgColor_.paint(rvg::colorPaint(colors::bg));
+	}
 }
 
 const rvg::Paint& Checkbox::classPaint() const {

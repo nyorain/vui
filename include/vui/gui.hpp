@@ -89,6 +89,8 @@ public:
 	Widget* mouseOver() const { return mouseOverWidget_; }
 	Widget* focus() const { return focusWidget_; }
 
+	void draw(vk::CommandBuffer) const override;
+
 	/// Adds an already created widget to this gui object.
 	using WidgetContainer::add;
 	using WidgetContainer::create;

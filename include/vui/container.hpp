@@ -20,8 +20,8 @@ public:
 	void mouseOver(bool gained);
 
 	/// Just draws all owned widgets.
-	void draw(vk::CommandBuffer) const;
-	void refreshTransform();
+	virtual void draw(vk::CommandBuffer) const;
+	virtual void refreshTransform();
 
 	auto& gui() const { return gui_; }
 

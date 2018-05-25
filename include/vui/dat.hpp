@@ -125,6 +125,8 @@ public:
 	const rvg::Paint& classPaint() const override;
 	Widget* mouseButton(const MouseButtonEvent&) override;
 	void draw(vk::CommandBuffer) const override;
+	void mouseOver(bool) override;
+	const rvg::Paint& bgPaint() const override { return bgColor_; }
 
 	void refreshTransform() override;
 	void position(Vec2f position) override;
@@ -136,6 +138,7 @@ public:
 
 protected:
 	std::optional<vui::Checkbox> checkbox_;
+	rvg::Paint bgColor_;
 };
 
 class Panel : public ContainerWidget {

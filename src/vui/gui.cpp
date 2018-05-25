@@ -1,5 +1,6 @@
 #include <vui/gui.hpp>
 #include <vui/widget.hpp>
+#include <rvg/context.hpp>
 #include <dlg/dlg.hpp>
 #include <nytl/rectOps.hpp>
 #include <nytl/matOps.hpp>
@@ -110,6 +111,11 @@ bool Gui::updateDevice() {
 
 	rerecord_ = false;
 	return rerecord;
+}
+
+void Gui::draw(vk::CommandBuffer cb) const {
+	context().bindDefaults(cb);
+	WidgetContainer::draw(cb);
 }
 
 void Gui::moveDestroyWidget(std::unique_ptr<Widget> w) {
