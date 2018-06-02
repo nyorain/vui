@@ -106,6 +106,13 @@ Widget* BasicButton::mouseMove(const MouseMoveEvent& ev) {
 }
 
 void BasicButton::mouseOver(bool gained) {
+	if(gained) {
+		gui().listener().cursor(Cursor::hand);
+	} else {
+		// TODO
+		gui().listener().cursor(Cursor::pointer);
+	}
+
 	hovered_ = gained;
 	if(hint_) {
 		hint_->hovered(hovered_);

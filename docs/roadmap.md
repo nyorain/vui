@@ -21,9 +21,9 @@
 	  Controllers
 - [ ] work on paddings and margins. Should not be hardcoded but depend
       on font size (or overall scale, something like this)
+	  - [ ] e.g. for checkbox, the padding should really depend on the
+	        checkbox size. That in turn will usually dependent on the font size
 - [ ] vui: validate styles passed to widgets (assert valid)
-- [ ] rvg: make non-texture gradients make use of transform buffer span
-- [ ] nanovg like box gradient
 - [ ] readd vui::Slider (with (optional?) different style)
 - [ ] implement vui cursor image callback in gui listener (e.g. textfield hover)
 - [ ] vui: window scrolling

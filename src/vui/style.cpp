@@ -4,8 +4,8 @@ namespace vui {
 namespace colors {
 
 const auto text = rvg::Color {255u, 255u, 255u};
-const auto bg = rvg::Color {10u, 10u, 10u};
-const auto bgAlpha = rvg::Color {40u, 40u, 40u, 200u};
+const auto bg = rvg::Color {30u, 30u, 30u};
+const auto bgAlpha = rvg::Color {80u, 80u, 80u, 200u};
 const auto bgHover = rvg::Color {5u, 5u, 5u};
 const auto bgActive = rvg::Color {2u, 2u, 2u};
 const auto accent = rvg::Color {150u, 230u, 200};

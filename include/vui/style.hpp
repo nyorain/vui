@@ -102,7 +102,7 @@ struct CheckboxStyle {
 	rvg::Paint* bgStroke {};
 	std::array<float, 4> bgRounding {0.f, 0.f, 0.f, 0.f};
 	std::array<float, 4> fgRounding {0.f, 0.f, 0.f, 0.f};
-	Vec2f padding = Vec {2.f, 2.f};
+	Vec2f padding = Vec {3.f, 3.f};
 };
 
 struct Styles {

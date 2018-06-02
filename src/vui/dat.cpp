@@ -116,9 +116,13 @@ const rvg::Paint& Button::classPaint() const {
 void Button::mouseOver(bool mouseOver) {
 	hovered_ = mouseOver;
 	if(mouseOver) {
+		gui().listener().cursor(Cursor::hand);
 		bgColor_.paint(rvg::colorPaint(colors::bgHover));
 	} else {
 		bgColor_.paint(rvg::colorPaint(colors::bg));
+
+		// TODO
+		gui().listener().cursor(Cursor::pointer);
 	}
 }
 
@@ -295,9 +299,13 @@ Checkbox::Checkbox(Panel& panel, Vec2f pos, std::string_view name) :
 
 void Checkbox::mouseOver(bool gained) {
 	if(gained) {
+		gui().listener().cursor(Cursor::hand);
 		bgColor_.paint(rvg::colorPaint(colors::bgHover));
 	} else {
 		bgColor_.paint(rvg::colorPaint(colors::bg));
+
+		// TODO
+		gui().listener().cursor(Cursor::pointer);
 	}
 }
 

@@ -44,6 +44,7 @@ public:
 	Widget* textInput(const TextInputEvent&) override;
 	Widget* key(const KeyEvent&) override;
 	void focus(bool gained) override;
+	void mouseOver(bool gained) override;
 
 	void update(double delta) override;
 	void draw(vk::CommandBuffer) const override;

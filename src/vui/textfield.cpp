@@ -115,6 +115,15 @@ Widget* Textfield::mouseButton(const MouseButtonEvent& ev) {
 	return this;
 }
 
+void Textfield::mouseOver(bool gained) {
+	if(gained) {
+		gui().listener().cursor(Cursor::beam);
+	} else {
+		// TODO
+		gui().listener().cursor(Cursor::pointer);
+	}
+}
+
 Widget* Textfield::mouseMove(const MouseMoveEvent& ev) {
 	if(selecting_) {
 		auto ps = selection_.start;

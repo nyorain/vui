@@ -16,6 +16,28 @@
 
 namespace vui {
 
+/// Native cursor types.
+enum class Cursor {
+	pointer = 3,
+	load,
+	loadPtr,
+	rightPtr,
+	hand,
+	grab,
+	crosshair,
+	help,
+	size,
+	sizeLeft,
+	sizeRight,
+	sizeTop,
+	sizeBottom,
+	sizeBottomRight,
+	sizeBottomLeft,
+	sizeTopRight,
+	sizeTopLeft,
+	beam,
+};
+
 /// Can be implemented and passed to a Gui object to get notified about
 /// certain events.
 class GuiListener {
@@ -26,6 +48,9 @@ public:
 public:
 	/// Called when a widget wants to copy a string to the clipboard.
 	virtual void copy(std::string_view) {}
+
+	/// Called when a widget wants to change the cursor.
+	virtual void cursor(Cursor) {}
 
 	/// Called when a widget wants to read a string from the clipboard.
 	/// When the GuiListener can deliver such a string, it should call
