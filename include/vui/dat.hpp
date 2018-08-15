@@ -1,3 +1,5 @@
+#pragma once
+
 /// Simple widgets classes modeled after googles dat.gui
 /// https://github.com/dataarts/dat.gui/blob/master/API.md
 

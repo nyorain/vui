@@ -61,10 +61,15 @@ void Textfield::size(Vec2f size) {
 	Widget::size(size);
 }
 
-void Textfield::utf8(std::string_view) {
+void Textfield::utf8(std::string_view str) {
+	utf32(nytl::toUtf32(str));
 }
 
-void Textfield::utf32(std::u32string_view) {
+void Textfield::utf32(std::u32string_view str) {
+	endSelection();
+	cursorPos_ = 0;
+	text_.change()->utf32 = str;
+	updateCursorPosition();
 }
 
 void Textfield::hide(bool hide) {
