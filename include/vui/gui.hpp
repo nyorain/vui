@@ -17,7 +17,7 @@
 namespace vui {
 
 /// Native cursor types.
-enum class Cursor {
+enum class Cursor : unsigned {
 	pointer = 3,
 	load,
 	loadPtr,
@@ -26,6 +26,8 @@ enum class Cursor {
 	grab,
 	crosshair,
 	help,
+	beam,
+	forbidden,
 	size,
 	sizeLeft,
 	sizeRight,
@@ -35,7 +37,6 @@ enum class Cursor {
 	sizeBottomLeft,
 	sizeTopRight,
 	sizeTopLeft,
-	beam,
 };
 
 /// Can be implemented and passed to a Gui object to get notified about
@@ -97,11 +98,15 @@ public:
 
 	/// Update should be called every frame (or otherwise as often as
 	/// possible) with the delta frame time in seconds.
-	/// Needed for time-sensitive stuff like animations or cusor blinkin.
-	void update(double delta);
+	/// Needed for time-sensitive stuff like animations or cusor blinking.
+	/// Returns whether the gui has changed visually in any way and
+	/// needs to be re-rendered.
+	bool update(double delta);
 
-	/// Should be called once every frame when the device is not rendering.
+	/// Should be called once every frame when the device is not currently
+	/// using the rendering resources.
 	/// Will update device resources.
+	/// Returns whether a rerecord is needed.
 	bool updateDevice();
 
 	/// Changes the transform to use for all widgets.

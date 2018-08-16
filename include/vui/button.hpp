@@ -12,19 +12,20 @@
 
 namespace vui {
 
+/// Base class for all kinds of buttons.
+/// Does not expose click events publicly but implements all required
+/// functionality: styles, hint and click detection.
 class BasicButton : public Widget {
 public:
-	BasicButton(Gui&, Vec2f pos);
-	BasicButton(Gui&, const Rect2f& bounds, const BasicButtonStyle&);
-
 	/// Sets/updates the hint for this button.
 	/// When an empty string view is passed, the hint
 	/// will be disabled.
 	void hint(std::string_view hint);
 
-	void size(Vec2f size) override;
-	using Widget::size;
+	void reset(const BasicButtonStyle&, const Rect2f&, bool force = false);
+	void style(const BasicButtonStyle&, bool reload = false);
 
+	void relayout(const nytl::Rect2f&) override;
 	void hide(bool hide) override;
 	bool hidden() const override;
 
@@ -33,16 +34,24 @@ public:
 	void mouseOver(bool gained) override;
 	void draw(vk::CommandBuffer) const override;
 
-	const auto& style() const { return style_.get(); }
+	DelayedHint* hint() const { return hint_; }
+	const auto& style() const { return *style_; }
 	bool hovered() const { return hovered_; }
 	bool pressed() const { return pressed_; }
 
 protected:
-	virtual void updatePaints();
+	BasicButton(Gui&);
+
+	/// This method will be called when the button was clicked.
+	/// Can be overriden to trigger an effect.
 	virtual void clicked(const MouseButtonEvent&) {}
+	virtual void updatePaints();
+	virtual void updatePaints(const ButtonDraw&);
+
+	Cursor cursor() const override;
 
 protected:
-	std::reference_wrapper<const BasicButtonStyle> style_;
+	const BasicButtonStyle* style_;
 	RectShape bg_;
 	Paint bgFill_;
 	Paint bgStroke_;
@@ -51,6 +60,7 @@ protected:
 	DelayedHint* hint_ {};
 };
 
+/// BasicButton with a label and publicly exposed click event.
 class LabeledButton : public BasicButton {
 public:
 	std::function<void(LabeledButton&)> onClick;
@@ -61,24 +71,27 @@ public:
 	LabeledButton(Gui&, const Rect2f& bounds, std::string_view label,
 		const LabeledButtonStyle&);
 
-	void size(Vec2f size) override;
-	using Widget::size;
+	/// Changes the buttons label.
+	void label(std::string_view);
+	void reset(const LabeledButtonStyle&, const Rect2f&, bool force = false);
+	void style(const LabeledButtonStyle&, bool reload = false);
 
+	void relayout(const nytl::Rect2f& rect) override;
 	void hide(bool hide) override;
 	void draw(vk::CommandBuffer) const override;
 
-	const auto& style() const { return style_.get(); }
+	const auto& style() const { return *style_; }
 
 protected:
-	virtual void clicked(const MouseButtonEvent&) override;
+	LabeledButton(Gui&, std::string_view label);
+
+	void clicked(const MouseButtonEvent&) override;
+	void updatePaints(const ButtonDraw&) override;
 
 protected:
-	std::reference_wrapper<const LabeledButtonStyle> style_;
-
+	const LabeledButtonStyle* style_;
 	Text label_;
-	RectShape bg_;
-	Paint bgFill_;
-	Paint bgStroke_;
+	Paint fgPaint_;
 };
 
 } // namespace vui

@@ -4,16 +4,30 @@
 
 #include <rvg/font.hpp>
 #include <dlg/dlg.hpp>
+#include <nytl/rectOps.hpp>
 
 namespace vui {
 
 // Basicbutton
-BasicButton::BasicButton(Gui& gui, Vec2f pos) :
-	BasicButton(gui, {pos, {autoSize, autoSize}}, gui.styles().basicButton) {
+BasicButton::BasicButton(Gui& gui) : Widget(gui) {
+	bg_ = {context(), {}, {}, {}};
+	bgFill_ = {context(), {}};
 }
 
-BasicButton::BasicButton(Gui& gui, const Rect2f& bounds,
-		const BasicButtonStyle& style) : Widget(gui, bounds), style_(style) {
+void BasicButton::reset(const BasicButtonStyle& style, const Rect2f& bounds,
+		bool force) {
+	auto sc = force || &style != &this->style(); // style change
+	auto bc = !(bounds == this->bounds()); // bounds change
+
+	if(!sc && !bc) {
+		return;
+	}
+
+	// analyze
+	auto pos = bounds.position;
+	auto size = bounds.size;
+	size.x = (size.x == autoSize) ? 130 : size.x;
+	size.y = (size.y == autoSize) ? 30 : size.y;
 
 	bool stroke = false;
 	for(auto& draw : {style.hovered, style.normal, style.pressed}) {
@@ -23,14 +37,33 @@ BasicButton::BasicButton(Gui& gui, const Rect2f& bounds,
 		}
 	}
 
-	bg_ = {context(), {}, {}, {true, stroke ? 2.f : 0.f}, style.rounding};
-	bgFill_ = {context(), {}};
-	if(stroke) {
+	// change
+	auto bgc = bg_.change();
+	bgc->size = size;
+	bgc->position = pos;
+	bgc->drawMode.stroke = stroke ? 2.f : 0.f;
+	bgc->rounding = style.rounding;
+
+	if(stroke && !bgStroke_.valid()) {
 		bgStroke_ = {context(), {}};
 	}
 
-	updatePaints();
-	size(bounds.size);
+	if(bc) {
+		Widget::relayout(bounds);
+	}
+
+	if(sc) {
+		style_ = &style;
+		updatePaints();
+	}
+}
+
+void BasicButton::style(const BasicButtonStyle& style, bool force) {
+	reset(style, bounds(), force);
+}
+
+void BasicButton::relayout(const nytl::Rect2f& bounds) {
+	reset(style(), bounds, false);
 }
 
 void BasicButton::hint(std::string_view text) {
@@ -45,6 +78,10 @@ void BasicButton::updatePaints() {
 	auto& draw =
 		pressed_ ? style().pressed :
 		hovered_ ? style().hovered : style().normal;
+	updatePaints(draw);
+}
+
+void BasicButton::updatePaints(const ButtonDraw& draw) {
 	*bgFill_.change() = draw.bg;
 	if(draw.bgStroke.has_value()) {
 		dlg_assert(bgStroke_.valid());
@@ -73,19 +110,6 @@ Widget* BasicButton::mouseButton(const MouseButtonEvent& event) {
 	return this;
 }
 
-void BasicButton::size(Vec2f size) {
-	if(size.x == autoSize) {
-		size.x = 130;
-	}
-
-	if(size.y == autoSize) {
-		size.y = 30;
-	}
-
-	bg_.change()->size = size;
-	Widget::size(size);
-}
-
 void BasicButton::hide(bool hide) {
 	bg_.disable(hide);
 }
@@ -106,13 +130,7 @@ Widget* BasicButton::mouseMove(const MouseMoveEvent& ev) {
 }
 
 void BasicButton::mouseOver(bool gained) {
-	if(gained) {
-		gui().listener().cursor(Cursor::hand);
-	} else {
-		// TODO
-		gui().listener().cursor(Cursor::pointer);
-	}
-
+	Widget::mouseOver(gained);
 	hovered_ = gained;
 	if(hint_) {
 		hint_->hovered(hovered_);
@@ -121,15 +139,17 @@ void BasicButton::mouseOver(bool gained) {
 }
 
 void BasicButton::draw(vk::CommandBuffer cb) const {
-	bindState(cb);
-
+	Widget::bindScissor(cb);
 	bgFill_.bind(cb);
 	bg_.fill(cb);
-
 	if(bgStroke_.valid()) {
 		bgStroke_.bind(cb);
 		bg_.stroke(cb);
 	}
+}
+
+Cursor BasicButton::cursor() const {
+	return Cursor::hand;
 }
 
 // Button
@@ -137,19 +157,58 @@ LabeledButton::LabeledButton(Gui& gui, Vec2f pos, std::string_view text) :
 	LabeledButton(gui, {pos, {autoSize, autoSize}}, text) {
 }
 
-LabeledButton::LabeledButton(Gui& gui, const Rect2f& bounds,
-	std::string_view text) :
-		LabeledButton(gui, bounds, text, gui.styles().labeledButton) {
+LabeledButton::LabeledButton(Gui& gui, const Rect2f& b, std::string_view txt) :
+	LabeledButton(gui, b, txt, gui.styles().labeledButton) {
+}
+
+LabeledButton::LabeledButton(Gui& gui, std::string_view label) :
+		BasicButton(gui) {
+	label_ = {context(), label, gui.font(), {}};
+	fgPaint_ = {context(), {}};
 }
 
 LabeledButton::LabeledButton(Gui& gui, const Rect2f& bounds,
-	std::string_view text, const LabeledButtonStyle& style) :
-		BasicButton(gui, bounds, style.basic ?
-			*style.basic : gui.styles().basicButton), style_(style) {
+	std::string_view text, const LabeledButtonStyle& xstyle) :
+		LabeledButton(gui, text) {
+	style(xstyle, true);
+	relayout(bounds);
+}
 
-	auto& font = style.font ? *style.font : gui.font();
-	label_ = {context(), text, font, {}};
-	this->size(bounds.size);
+void LabeledButton::reset(const LabeledButtonStyle& style,
+		const Rect2f& bounds, bool force) {
+	auto sc = force || &style != &this->style(); // style change
+	auto bc = !(bounds == this->bounds()); // bounds change
+
+	if(!sc && !bc) {
+		return;
+	}
+
+	// analyze
+	auto pos = bounds.position;
+	auto size = bounds.size;
+	auto& font = style.font ? *style.font : gui().font();
+	auto textSize = nytl::Vec2f {font.width(label_.utf8()), font.height()};
+	auto textPos = pos + style.padding;
+
+	if(size.x != autoSize) {
+		textPos.x = pos.x + (size.x - textSize.x) / 2;
+	} else {
+		size.x = textSize.x + 2 * style.padding.x;
+	}
+
+	if(size.y != autoSize) {
+		textPos.y = pos.y + (size.y - textSize.y) / 2;
+	} else {
+		size.y = textSize.y + 2 * style.padding.y;
+	}
+
+	// change
+	auto tc = label_.change();
+	tc->font = &font;
+	tc->position = pos;
+
+	auto& s = style.basic ? *style.basic : gui().styles().basicButton;
+	BasicButton::reset(s, {pos, size}, force);
 }
 
 void LabeledButton::clicked(const MouseButtonEvent&) {
@@ -158,27 +217,12 @@ void LabeledButton::clicked(const MouseButtonEvent&) {
 	}
 }
 
-void LabeledButton::size(Vec2f size) {
-	auto tc = label_.change();
-	auto textSize = Vec {label_.width(), label_.font()->height()};
-	tc->position = style().padding;
+void LabeledButton::style(const LabeledButtonStyle& style, bool force) {
+	reset(style, bounds(), force);
+}
 
-	if(size.x != autoSize) {
-		tc->position.x = (size.x - textSize.x) / 2;
-	} else {
-		size.x = textSize.x + 2 * style().padding.x;
-	}
-
-	if(size.y != autoSize) {
-		tc->position.y = (size.y - textSize.y) / 2;
-	} else {
-		size.y = textSize.y + 2 * style().padding.y;
-	}
-
-	tc->position.x = std::max(tc->position.y, 10.f);
-
-	// resizes scissor
-	BasicButton::size(size);
+void LabeledButton::relayout(const Rect2f& bounds) {
+	reset(style(), bounds, false);
 }
 
 void LabeledButton::hide(bool hide) {
@@ -188,8 +232,13 @@ void LabeledButton::hide(bool hide) {
 
 void LabeledButton::draw(vk::CommandBuffer cb) const {
 	BasicButton::draw(cb);
-	style().label->bind(cb);
+	fgPaint_.bind(cb);
 	label_.draw(cb);
+}
+
+void LabeledButton::updatePaints(const ButtonDraw& draw) {
+	dlg_assert(draw.fg);
+	*fgPaint_.change() = *draw.fg;
 }
 
 } // namespace vui

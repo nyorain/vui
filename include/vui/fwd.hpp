@@ -11,6 +11,7 @@ using namespace rvg;
 class Gui;
 class Widget;
 struct Styles;
+enum class Cursor : unsigned;
 
 class Pane;
 class Hint;

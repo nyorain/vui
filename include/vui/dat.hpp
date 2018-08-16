@@ -175,7 +175,11 @@ public:
 	void toggle() { open(!open_); }
 
 	void refreshLayout();
+
 	bool remove(const Widget&);
+
+	bool disable(const Widget&);
+	bool enable(const Widget&);
 
 	// for controllers
 	const auto& paints() const { return paints_; }
@@ -212,6 +216,8 @@ protected:
 		LabeledButtonStyle metaButton;
 		TextfieldStyle textfield;
 	} styles_;
+
+	std::vector<std::unique_ptr<Widget>> disabled_;
 };
 
 class Folder : public ContainerWidget {

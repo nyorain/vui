@@ -6,8 +6,10 @@
   - [x] selection
   - [ ] some basic shortcuts like ctrl-a (might need ny fixes)
 - [ ] vui: row
-- [ ] probably not a good idea to make widgets use a transform by default.
+- [ ] maybe not a good idea to make widgets use a transform by default.
       cleaner implementation without? And better performance
+	  maybe add universal 'layout(position, size)' method to every widget
+	  that is also just called from the constructor?
 - [ ] destruction/removal of widgets
 	- [ ] make sure to rerecord
 - [ ] vui: non-drawing widgets (like row/column) should not create

@@ -1,60 +1,16 @@
 #include <vui/widget.hpp>
 #include <vui/gui.hpp>
+#include <dlg/dlg.hpp>
 
 #include <nytl/matOps.hpp>
 #include <nytl/rectOps.hpp>
 
 namespace vui {
 
-Widget::Widget(Gui& gui, const Rect2f& bounds) :
-		gui_(gui), bounds_(bounds), intersectScissor_(Scissor::reset) {
-
-	auto mat = nytl::identity<4, float>();
-	mat[0][3] = bounds_.position.x;
-	mat[1][3] = bounds_.position.y;
-	transform_ = {context(), gui.transform() * mat};
-
-	auto b = bounds;
-	b.position = {};
-	scissor_ = {context(), b};
-}
-
-void Widget::bindState(vk::CommandBuffer cb) const {
-	scissor_.bind(cb);
-	transform_.bind(cb);
-}
-
-void Widget::size(Vec2f size) {
-	bounds_.size = size;
-	updateScissor();
-}
-
-void Widget::refreshTransform() {
-	auto mat = nytl::identity<4, float>();
-	mat[0][3] = bounds_.position.x;
-	mat[1][3] = bounds_.position.y;
-	transform_.matrix(gui().transform() * mat);
-}
-
-void Widget::position(Vec2f position) {
-	bounds_.position = position;
-	refreshTransform();
-	updateScissor();
-}
-
+// Widget
 bool Widget::contains(Vec2f point) const {
+	dlg_assert(bounds().size.x >= 0 && bounds().size.y >= 0);
 	return nytl::contains(bounds_, point);
-}
-
-void Widget::intersectScissor(const Rect2f& rect) {
-	intersectScissor_ = rect;
-	updateScissor();
-}
-
-void Widget::updateScissor() {
-	auto cpy = intersectScissor_;
-	cpy.position -= bounds_.position;
-	scissor_.rect(nytl::intersection(cpy, ownScissor()));
 }
 
 Context& Widget::context() const {
@@ -69,14 +25,89 @@ void Widget::registerUpdateDevice() {
 	gui().addUpdateDevice(*this);
 }
 
-Rect2f Widget::ownScissor() const {
-	return {{}, size()};
+void Widget::relayout(const Rect2f& b) {
+	dlg_assert(b.size.x >= 0 && b.size.y >= 0);
+	if(!(b == bounds_)) {
+		bounds_ = b;
+		updateScissor();
+	}
 }
 
-Rect2f Widget::scissor() const {
-	auto rect = scissor_.rect();
-	rect.position += position();
-	return rect;
+void Widget::updateScissor() {
+	if(scissor_.valid()) {
+		dlg_assert(bounds().size.x >= 0 && bounds().size.y >= 0);
+		scissor_.rect(nytl::intersection(ownScissor(), intersectScissor()));
+	}
+}
+
+void Widget::intersectScissor(const Rect2f& rect) {
+	dlg_assert(rect.size.x >= 0 && rect.size.y >= 0);
+	intersectScissor_ = rect;
+	updateScissor();
+}
+
+void Widget::mouseOver(bool over) {
+	if(over) {
+		gui().listener().cursor(cursor());
+	}
+}
+
+Cursor Widget::cursor() const {
+	// default cursor
+ 	return Cursor::pointer;
+}
+
+void Widget::bindScissor(vk::CommandBuffer cb) const {
+	// only create it when really needed
+	// bindScissor will only be called from widgets that actually draw
+	// stuff
+	if(!scissor_.valid()) {
+		dlg_assert(bounds().size.x >= 0 && bounds().size.y >= 0);
+		auto s = nytl::intersection(ownScissor(), intersectScissor());
+		scissor_ = {context(), s};
+	}
+
+	scissor_.bind(cb);
+}
+
+// MovableWidget
+MovableWidget::MovableWidget(Gui& gui) : Widget(gui) {
+	transform_ = {context()};
+}
+
+void MovableWidget::updateTransform(const nytl::Mat4f& t) {
+	auto mat = nytl::identity<4, float>();
+	mat[0][3] = bounds().position.x;
+	mat[1][3] = bounds().position.y;
+	transform_.matrix(t * mat);
+}
+
+void MovableWidget::position(Vec2f n) {
+	if(n == bounds().position) {
+		return;
+	}
+
+	// we cheat here a little bit so we don't have to store
+	// the transform from updateTransform
+	// note that this is safe because only the translation
+	// effect of the matrix is ever changed.
+	auto mat = transform_.matrix();
+	auto o = bounds().position;
+	mat[0][3] -= (o.x / mat[0][0]) + (o.y / mat[0][1]);
+	mat[1][3] -= (o.y / mat[1][1]) + (o.x / mat[1][0]);
+	mat[0][3] += (n.x * mat[0][0]) + (n.y * mat[0][1]);
+	mat[1][3] += (n.y * mat[1][1]) + (n.x * mat[1][0]);
+	transform_.matrix(mat);
+}
+
+void MovableWidget::relayout(const Rect2f& b) {
+	position(b.position);
+	size(b.size);
+	Widget::relayout(b);
+}
+
+void MovableWidget::bindTransform(vk::CommandBuffer cb) const {
+	transform_.bind(cb);
 }
 
 } // namespace vui

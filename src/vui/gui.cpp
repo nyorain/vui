@@ -145,5 +145,4 @@ void Gui::addUpdateDevice(Widget& widget) {
 	updateDevice_.insert(&widget);
 }
 
-
 } // namespace vui

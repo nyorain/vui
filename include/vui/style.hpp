@@ -10,6 +10,9 @@ namespace vui {
 struct ButtonDraw {
 	rvg::PaintData bg;
 	std::optional<rvg::PaintData> bgStroke {};
+
+	// must be set for buttons types that have a foreground, e.g. label
+	std::optional<rvg::PaintData> fg {};
 };
 
 struct BasicButtonStyle {
@@ -20,7 +23,6 @@ struct BasicButtonStyle {
 };
 
 struct LabeledButtonStyle {
-	rvg::Paint* label;
 	BasicButtonStyle* basic {};
 	Vec2f padding = Vec {20.f, 10.f};
 	const Font* font {};
@@ -33,17 +35,12 @@ struct TextfieldDraw {
 };
 
 struct TextfieldStyle {
-	// TODO
-	// TextfieldDraw normal;
-	// TextfieldDraw hovered;
-	// TextfieldDraw focused;
-
-	rvg::Paint* text;
-	rvg::Paint* selected;
-	rvg::Paint* bg;
-	rvg::Paint* cursor;
-	rvg::Paint* selectedText {};
-	rvg::Paint* bgStroke {};
+	TextfieldDraw normal;
+	TextfieldDraw hovered;
+	TextfieldDraw focused;
+	rvg::Paint* selected; // only visible when focused
+	rvg::Paint* cursor; // only visible when focused
+	rvg::Paint* selectedText {}; // only visible when focused
 	float cursorWidth = 1.f;
 	Vec2f padding = Vec {10.f, 10.f};
 	std::array<float, 4> rounding = {};

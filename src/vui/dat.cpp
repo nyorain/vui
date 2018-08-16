@@ -446,21 +446,60 @@ bool Panel::remove(const Widget& w) {
 	auto it = std::find_if(widgets_.begin(), widgets_.end(),
 		[&](auto& ww){ return ww.get() == &w; });
 	if(it == widgets_.end()) {
-		return false;
+		return true;
 	}
 
-	// TODO!
-	if(focus_ == &w) {
+	// TODO! children
+	// if(focus_ == &w) {
 		focus_ = nullptr;
-	}
+	// }
 
-	if(mouseOver_ == &w) {
+	// if(mouseOver_ == &w) {
 		mouseOver_ = nullptr;
-	}
+	// }
 
 	gui().moveDestroyWidget(std::move(*it));
 	widgets_.erase(it);
 	refreshLayout();
+
+	return true;
+}
+
+bool Panel::disable(const Widget& w) {
+	auto it = std::find_if(widgets_.begin(), widgets_.end(),
+		[&](auto& ww){ return ww.get() == &w; });
+	if(it == widgets_.end()) {
+		return false;
+	}
+
+	// TODO! children
+	// if(focus_ == &w) {
+		focus_ = nullptr;
+	// }
+
+	// if(mouseOver_ == &w) {
+		mouseOver_ = nullptr;
+	// }
+
+	disabled_.push_back(std::move(*it));
+	widgets_.erase(it);
+	refreshLayout();
+	gui().rerecord(); // TODO: might be possible with hide
+
+	return true;
+}
+
+bool Panel::enable(const Widget& w) {
+	auto it = std::find_if(disabled_.begin(), disabled_.end(),
+		[&](auto& ww){ return ww.get() == &w; });
+	if(it == disabled_.end()) {
+		return false;
+	}
+
+	widgets_.emplace(widgets_.end() - 1, std::move(*it));
+	disabled_.erase(it);
+	refreshLayout();
+	gui().rerecord();
 
 	return true;
 }
@@ -503,8 +542,8 @@ void Panel::refreshLayout() {
 		if(folder) {
 			folder->refreshLayout();
 		}
-
 		// /hack
+
 		y += w->size().y;
 	}
 

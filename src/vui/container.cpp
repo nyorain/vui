@@ -5,6 +5,10 @@ namespace vui {
 
 // WidgetContainer
 Widget* WidgetContainer::mouseMove(const MouseMoveEvent& ev) {
+	// TODO: optimization: check for current mouseOver_ first?
+	// but that could lead to problems when position/zorder of
+	// another window changed that is now over the old one
+
 	for(auto it = widgets_.rbegin(); it != widgets_.rend(); ++it) {
 		auto& w = *it;
 		if(!w->hidden() && w->contains(ev.position)) {
@@ -30,6 +34,7 @@ Widget* WidgetContainer::mouseMove(const MouseMoveEvent& ev) {
 }
 
 Widget* WidgetContainer::mouseButton(const MouseButtonEvent& ev) {
+	// TODO: check if hidden
 	if(mouseOver_ != focus_) {
 		if(focus_) {
 			focus_->focus(false);
