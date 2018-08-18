@@ -396,9 +396,9 @@ void Textfield::update(double delta) {
 	blinkAccum_ = blinkAccum_ + delta;
 
 	// when the textfield is hidden we can't just show the cursor
-	if(!hidden() && blinkAccum_ > blinkTime) {
+	if(!hidden() && blinkAccum_ > Gui::blinkTime) {
 		int quo;
-		blinkAccum_ = std::remquo(blinkAccum_, blinkTime, &quo);
+		blinkAccum_ = std::remquo(blinkAccum_, Gui::blinkTime, &quo);
 		if(quo % 2) { // only uneven amount of toggles results in real toggle
 			cursor_.disable(!cursor_.disabled());
 		}

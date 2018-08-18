@@ -82,11 +82,12 @@ public:
 
 /// Central gui object. Manages all widgets and is entry point for
 /// input and rendering.
-class Gui : public WidgetContainer, public nytl::NonCopyable {
+class Gui : public ContainerWidget {
 public:
 	/// Constants to be parameterized
 	static constexpr auto hintDelay = 1.f; // seconds
 	static constexpr auto hintOffset = Vec {20.f, 5.f}; // seconds
+	static constexpr auto blinkTime = 0.5f; // seconds
 
 public:
 	Gui(Context& context, const Font& font,
@@ -95,21 +96,24 @@ public:
 		GuiListener& listener = GuiListener::nop());
 
 	/// Makes the Gui process the given input.
-	Widget* mouseMove(const MouseMoveEvent&);
-	Widget* mouseButton(const MouseButtonEvent&);
-	void focus(bool gained);
-	void mouseOver(bool gained);
+	Widget* mouseMove(const MouseMoveEvent&) override;
+	Widget* mouseButton(const MouseButtonEvent&) override;
+	void focus(bool gained) override;
+	void mouseOver(bool gained) override;
 
 	/// Update should be called every frame (or otherwise as often as
 	/// possible) with the delta frame time in seconds.
 	/// Needed for time-sensitive stuff like animations or cusor blinking.
-	void update(double delta);
+	void update(double delta) override;
 
 	/// Should be called once every frame when the device is not currently
 	/// using the rendering resources.
 	/// Will update device resources.
 	/// Returns whether a rerecord is needed.
-	bool updateDevice();
+	bool updateDevice(); // intentional hide of void updateDevie
+
+	/// Renders all widgets.
+	void draw(vk::CommandBuffer) const override;
 
 	/// Changes the transform to use for all widgets.
 	void transform(const nytl::Mat4f&);
@@ -121,13 +125,11 @@ public:
 	Widget* mouseOver() const { return mouseOverWidget_; }
 	Widget* focus() const { return focusWidget_; }
 
-	void draw(vk::CommandBuffer) const override;
+	/// See ContainerWidget.
+	using ContainerWidget::create;
+	using ContainerWidget::add;
+	using ContainerWidget::remove;
 
-	/// Adds an already created widget to this gui object.
-	using WidgetContainer::add;
-	using WidgetContainer::create;
-
-	Context& context() const { return context_; }
 	const Font& font() const { return font_; }
 	const nytl::Mat4f transform() const { return transform_; }
 	const auto& styles() const { return styles_; }
@@ -139,6 +141,10 @@ public:
 	void addUpdate(Widget&);
 	void addUpdateDevice(Widget&);
 	void moveDestroyWidget(std::unique_ptr<Widget>);
+
+protected:
+	using Widget::gui;
+	using Widget::contains;
 
 protected:
 	Context& context_;

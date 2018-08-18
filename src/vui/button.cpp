@@ -9,7 +9,7 @@
 namespace vui {
 
 // Basicbutton
-BasicButton::BasicButton(Gui& gui) : Widget(gui) {
+BasicButton::BasicButton(Gui& gui, ContainerWidget* p) : Widget(gui, p) {
 	bg_ = {context(), {}, {}, {}};
 	bgFill_ = {context(), {}};
 	bgStroke_ = {context(), {}};

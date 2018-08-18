@@ -2,20 +2,6 @@
 #include <dlg/dlg.hpp>
 
 namespace vui {
-namespace {
-
-template<typename Ev>
-Ev localCopy(const Widget& w, Ev ev) {
-	ev.position = w.toLocal(ev.position);
-	return ev;
-}
-
-bool zWidgetOrder(const std::unique_ptr<Widget>& a,
-		const std::unique_ptr<Widget>& b) {
-	return a->zOrder() < b->zOrder();
-}
-
-} // anon namespace
 
 // WidgetContainer
 Widget* WidgetContainer::widgetAt(Vec2f pos) {

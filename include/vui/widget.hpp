@@ -15,18 +15,13 @@ namespace vui {
 /// fixed.
 constexpr auto autoSize = -1.f;
 
-/// A graphical widget with fixed bounds.
+/// A Widget with fixed bounds.
 /// Must not be something visible, may be a layouting or container widget.
-/// There are two types of coordinate spaces relevant for widgets:
-/// - local: does not depend on widgets transform/position. In these
-///   cordinates, the widget always has an axis aligned bounding box with
-///   the top-left corner at (0,0)
-/// - global: coordinates given relative to an ancestors frame of reference.
-///   Isn't necessarily the gui space, there can be widgets that create
-///   their own frame of reference.
+/// All coordinates for the Widget are always in global space.
+/// The Widget is defined through its axis-aligned bounding box.
 class Widget : public nytl::NonMovable {
 public:
-	virtual ~Widget() = default;
+	virtual ~Widget();
 
 	/// Hides/unhides this widget.
 	/// A hidden widget should not render anything.
@@ -36,32 +31,30 @@ public:
 	/// Returns whether the widget is hidden.
 	virtual bool hidden() const = 0;
 
+	/// Returns whether the widget contains the given point
+	/// Used e.g. to determine whether the cursor is over it.
+	/// Default implementation returns true for all positions inside the bounds.
+	virtual bool contains(Vec2f) const;
+
 	/// Resizes this widget. Note that not all widgets are resizable equally.
 	/// Some might throw when an invalid size is given or just display
 	/// their content incorrectly.
-	/// Implementations must call Widget::relayout to update them.
-	virtual void size(Vec2f size) { relayout({position(), size}); };
+	/// Implementations must call Widget::bounds to update the bounds.
+	virtual void size(Vec2f size) { bounds({position(), size}); };
 
-	/// Changes the widgets position. Can be seen as offset of
-	/// the local coordinate space to the global one.
-	/// Implementations must call Widget::relayout to update them.
-	virtual void position(Vec2f pos) { relayout({pos, size()}); }
+	/// Changes the widgets position in the global space.
+	/// Implementations must call Widget::bounds to update the bounds.
+	virtual void position(Vec2f pos) { bounds({pos, size()}); }
 
 	/// Completely moves and resizes the widget.
 	/// Like the size method, this is able to resize the widget which isn't
 	/// supported by all widget types equally.
-	/// Implementations must call Widget::relayout to update the widgets bounds.
-	virtual void relayout(const Rect2f& bounds) = 0;
+	/// Implementations must call Widget::bounds to update the widgets bounds.
+	virtual void bounds(const Rect2f& bounds) = 0;
 
-	/// Returns whether the widget contains the given point in global
-	/// coordinates. Used e.g. to determine whether the cursor is over
-	/// the widget or not.
-	virtual bool contains(Vec2f point) const;
-
-	/// Instructs the widget to make sure that no rendering happens
-	/// outside the given rect (additionally to its own bounds).
-	/// Resets any previous scissor intersections. Given in gui coordinates.
-	virtual void intersectScissor(const Rect2f&);
+	/// Records all needed command for drawing itself into the given
+	/// CommandBuffer. The CommandBuffer must be in recording state.
+	virtual void draw(vk::CommandBuffer) const {}
 
 	/// Called when the Widget has registered itself for update.
 	/// Gets the delta time since the last frame in seconds.
@@ -73,26 +66,15 @@ public:
 	/// update rendering resources.
 	virtual void updateDevice() {}
 
-	/// Records all needed command for drawing itself into the given
-	/// CommandBuffer. The CommandBuffer must be in recording state.
-	virtual void draw(vk::CommandBuffer) const {}
-
-	/// The z order of this widget.
-	/// Widgets	with a lower z order are drawn first.
-	/// Note that the zOrder only matters for widgets with the same parent.
-	/// zOrder 0 should be the default.
-	virtual int zOrder() const { return 0; }
-
-	/// Transforms a given global position into local coordinates.
-	/// The default implementation just subtracts the own position.
-	virtual Vec2f toLocal(Vec2f pos) const;
+	/// Returns the effective area outside which this widget and
+	/// all its children must not render.
+	/// Should never be larger than the parents scissor.
+	virtual Rect2f scissor() const;
 
 	// - input processing -
-	/// All positions are given in local coordinates.
+	/// All positions are given global coordinates.
 	/// Must return the Widget that processed the event which might be itself
 	/// or a child widget or none (nullptr).
-	/// If e.g. the widget is transparent at the given position and therefore
-	/// does not interact with a mouse button press it should return nullptr.
 	virtual Widget* mouseButton(const MouseButtonEvent&) { return nullptr; }
 	virtual Widget* mouseMove(const MouseMoveEvent&) { return nullptr; }
 	virtual Widget* mouseWheel(const MouseWheelEvent&) { return nullptr; }
@@ -100,12 +82,22 @@ public:
 	virtual Widget* textInput(const TextInputEvent&) { return nullptr; }
 
 	/// Called when the widget receives or loses focus.
-	virtual void focus(bool) {}
+	/// Sent before the event that triggered it if any (e.g. a button click
+	/// on this widget).
+	virtual void focus(bool gained) { (void)(gained); }
 
-	/// Called when the mouse enters or leaves the bounds widget.
+	/// Called when the mouse enters or leaves this widget.
+	/// Followed by a MouseMoveEvent indicating the cursor position.
 	/// Overriding implementations should always make sure to call the
 	/// base implementation to correctly (re-)set the cursor.
-	virtual void mouseOver(bool);
+	virtual void mouseOver(bool gained);
+
+	/// Called from parent. Update internal rendering state.
+	virtual void updateScissor();
+
+	/// Returns the parent of this widget
+	/// A widget may not have a parent.
+	ContainerWidget* parent() const { return parent_; }
 
 	/// Returns the associated gui object.
 	Gui& gui() const { return gui_; }
@@ -116,70 +108,43 @@ public:
 	Vec2f position() const { return bounds_.position; }
 	Vec2f size() const { return bounds_.size; }
 
-	/// Notifies this widget that the global transform was changed.
-	/// Only relevant for widgets that use custom transform (they
-	/// must pre-multiply this transform).
-	/// NOTE: not to be called from the user directly since not
-	/// all widgets can be freely transformed.
-	virtual void updateTransform(const nytl::Mat4f&) {}
-
 protected:
-	Widget(Gui& gui) : gui_(gui) {}
+	Widget(Gui& gui, ContainerWidget* parent) :
+		gui_(gui), parent_(parent) {}
 
 	/// Registers this widget for an update/updateDevice callback as soon
 	/// as possible.
 	void registerUpdate();
 	void registerUpdateDevice();
 
-	/// Makes sure all state for rendering is bound.
-	/// Will bind the scissor.
-	void bindScissor(vk::CommandBuffer cb) const;
-
-	/// Can be changed by implementations to make this widget use
-	/// another cursor.
-	virtual Cursor cursor() const;
-
-	/// Returns the logical scissor used by this widget.
+	/// Returns the logical scissor used by this widget in external coordinates.
 	/// Will be intersected with intersectScissor to result
 	/// in the effective scissor.
 	virtual Rect2f ownScissor() const { return bounds_; }
 
-	void updateScissor();
-	const Rect2f& intersectScissor() const { return intersectScissor_; }
-	Rect2f scissor() const { return scissor_.rect(); }
+	/// Binds the scissor for this widget. Should only be called
+	/// when this widget renders something itself. The scissor
+	/// must always be bound, no matter if the Widget only renders
+	/// inside its bounds since it might be additionally restriced
+	/// by its parent.
+	void bindScissor(vk::CommandBuffer cb) const;
+
+	/// The cursor that should be used when the cursor hovers over this
+	/// widget. Normal pointer by default.
+	/// Will be set everytime the cursor enters this widget. Widgets can
+	/// stil change it dynamically.
+	virtual Cursor cursor() const;
+
+	/// Sets the parent of this widget.
+	/// Can be null. Allows derived classes to manage (especially add/remove)
+	/// their children.
+	static void parent(Widget& widget, ContainerWidget* newParent);
 
 private:
 	Gui& gui_; // associated gui
 	Rect2f bounds_; // global bounds
-
-	// Required even in purely logical (not drawing) nodes to correctly
-	// propagate it to (new) children
-	// Needed in all (!) drawing widgets to realize e.g. scrolling
-	// in windows
-	Rect2f intersectScissor_;
+	ContainerWidget* parent_ {}; // optional parent
 	mutable rvg::Scissor scissor_; // mutable since only created when needed
-};
-
-/// Widget that uses a custom transform and so introduces its own
-/// frame of reference for all children.
-/// Mainly used for widgets that change position often (like windows/hints)
-/// so only the transform has to be recalculated on change.
-/// Deriving classes only have to implement the size method, the position
-/// part of relayout is handled by this widget. They also have to specify
-/// everything that is rendered in local coordinates.
-class MovableWidget : public Widget {
-public:
-	void updateTransform(const nytl::Mat4f&) override;
-	void position(Vec2f) override;
-	void relayout(const Rect2f& bounds) override;
-	void size(Vec2f) override = 0;
-
-protected:
-	MovableWidget(Gui& gui);
-	void bindTransform(vk::CommandBuffer cb) const;
-
-private:
-	rvg::Transform transform_;
 };
 
 } // namespace vui

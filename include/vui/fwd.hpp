@@ -10,6 +10,7 @@ using namespace rvg;
 
 class Gui;
 class Widget;
+class ContainerWidget;
 struct Styles;
 enum class Cursor : unsigned;
 

@@ -26,8 +26,6 @@ public:
 	/// pressed)
 	std::function<void(Textfield&)> onSubmit;
 
-	static constexpr auto blinkTime = 0.5; // in seconds
-
 public:
 	Textfield(Gui&, Vec2f pos, std::string_view start = "");
 	Textfield(Gui&, const Rect2f& bounds, std::string_view start = "");

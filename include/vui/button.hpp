@@ -25,7 +25,7 @@ public:
 	void reset(const BasicButtonStyle&, const Rect2f&, bool force = false);
 	void style(const BasicButtonStyle&, bool reload = false);
 
-	void relayout(const nytl::Rect2f&) override;
+	void bounds(const nytl::Rect2f&) override;
 	void hide(bool hide) override;
 	bool hidden() const override;
 
@@ -40,7 +40,7 @@ public:
 	bool pressed() const { return pressed_; }
 
 protected:
-	BasicButton(Gui&);
+	BasicButton(Gui&, ContainerWidget*);
 
 	/// This method will be called when the button was clicked.
 	/// Can be overriden to trigger an effect.
@@ -73,17 +73,18 @@ public:
 
 	/// Changes the buttons label.
 	void label(std::string_view);
-	void reset(const LabeledButtonStyle&, const Rect2f&, bool force = false);
+	void reset(const LabeledButtonStyle&, const Rect2f&, bool force = false,
+		std::optional<std::string_view> label = std::nullopt);
 	void style(const LabeledButtonStyle&, bool reload = false);
 
-	void relayout(const nytl::Rect2f& rect) override;
+	void bounds(const nytl::Rect2f& rect) override;
 	void hide(bool hide) override;
 	void draw(vk::CommandBuffer) const override;
 
 	const auto& style() const { return *style_; }
 
 protected:
-	LabeledButton(Gui&, std::string_view label);
+	LabeledButton(Gui&, ContainerWidget*, std::string_view label);
 
 	void clicked(const MouseButtonEvent&) override;
 	void updatePaints() override;

@@ -27,7 +27,7 @@ constexpr auto autoSize = -1.f;
 /// - local: does not depend on widgets transform/position. In these
 ///   cordinates, the widget always has an axis aligned bounding box with
 ///   the top-left corner at (0,0)
-/// - global: coordinates given relatively to an ancestors frame of reference.
+/// - global: coordinates relative to the widgets global frame of reference.
 ///   Isn't necessarily the gui space, there can be widgets that create
 ///   their own frame of reference.
 class Widget {

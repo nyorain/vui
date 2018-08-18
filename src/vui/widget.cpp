@@ -25,7 +25,7 @@ void Widget::registerUpdateDevice() {
 	gui().addUpdateDevice(*this);
 }
 
-void Widget::relayout(const Rect2f& b) {
+void Widget::bounds(const Rect2f& b) {
 	dlg_assert(b.size.x >= 0 && b.size.y >= 0);
 	if(!(b == bounds_)) {
 		bounds_ = b;
@@ -35,15 +35,10 @@ void Widget::relayout(const Rect2f& b) {
 
 void Widget::updateScissor() {
 	if(scissor_.valid()) {
-		dlg_assert(bounds().size.x >= 0 && bounds().size.y >= 0);
-		scissor_.rect(nytl::intersection(ownScissor(), intersectScissor()));
+		auto s = scissor();
+		dlg_assert(s.size.x >= 0 && s.size.y >= 0);
+		scissor_.rect(s);
 	}
-}
-
-void Widget::intersectScissor(const Rect2f& rect) {
-	dlg_assert(rect.size.x >= 0 && rect.size.y >= 0);
-	intersectScissor_ = rect;
-	updateScissor();
 }
 
 void Widget::mouseOver(bool over) {
@@ -63,55 +58,25 @@ void Widget::bindScissor(vk::CommandBuffer cb) const {
 	// stuff
 	if(!scissor_.valid()) {
 		dlg_assert(bounds().size.x >= 0 && bounds().size.y >= 0);
-		auto s = nytl::intersection(ownScissor(), intersectScissor());
-		scissor_ = {context(), s};
+		scissor_ = {context(), scissor()};
 	}
 
 	scissor_.bind(cb);
 }
 
-Vec2f Widget::toLocal(Vec2f pos) const {
-	return pos - position();
-}
-
-// MovableWidget
-MovableWidget::MovableWidget(Gui& gui) : Widget(gui) {
-	transform_ = {context()};
-}
-
-void MovableWidget::updateTransform(const nytl::Mat4f& t) {
-	auto mat = nytl::identity<4, float>();
-	mat[0][3] = bounds().position.x;
-	mat[1][3] = bounds().position.y;
-	transform_.matrix(t * mat);
-}
-
-void MovableWidget::position(Vec2f n) {
-	if(n == bounds().position) {
-		return;
+Rect2f Widget::scissor() const {
+	if(parent()) {
+		return intersection(ownScissor(), parent()->scissor());
+	} else {
+		dlg_warn("Widget::scissor called on orphaned widget");
+		return ownScissor();
 	}
-
-	// we cheat here a little bit so we don't have to store
-	// the transform from updateTransform
-	// note that this is safe because only the translation
-	// effect of the matrix is ever changed.
-	auto mat = transform_.matrix();
-	auto o = bounds().position;
-	mat[0][3] -= (o.x / mat[0][0]) + (o.y / mat[0][1]);
-	mat[1][3] -= (o.y / mat[1][1]) + (o.x / mat[1][0]);
-	mat[0][3] += (n.x * mat[0][0]) + (n.y * mat[0][1]);
-	mat[1][3] += (n.y * mat[1][1]) + (n.x * mat[1][0]);
-	transform_.matrix(mat);
 }
 
-void MovableWidget::relayout(const Rect2f& b) {
-	position(b.position);
-	size(b.size);
-	Widget::relayout(b);
-}
-
-void MovableWidget::bindTransform(vk::CommandBuffer cb) const {
-	transform_.bind(cb);
+void Widget::parent(Widget& widget, ContainerWidget* newParent) {
+	dlg_assert(!widget.parent_ || !widget.parent_->isChild(widget));
+	dlg_assert(!newParent || newParent->isChild(widget));
+	widget.parent_ = newParent;
 }
 
 } // namespace vui
