@@ -110,7 +110,7 @@ public:
 	/// using the rendering resources.
 	/// Will update device resources.
 	/// Returns whether a rerecord is needed.
-	bool updateDevice(); // intentional hide of void updateDevie
+	bool updateDevice() override;
 
 	/// Renders all widgets.
 	void draw(vk::CommandBuffer) const override;
@@ -122,16 +122,18 @@ public:
 	/// has focus/over which the mouse hovers.
 	/// Effectively traverses the line of focused/mouseOver children.
 	/// Returns nullptr if there is currently none.
-	Widget* mouseOver() const { return mouseOverWidget_; }
-	Widget* focus() const { return focusWidget_; }
+	Widget* mouseOver() const { return globalMouseOver_; }
+	Widget* focus() const { return globalFocus_; }
 
 	/// See ContainerWidget.
 	using ContainerWidget::create;
 	using ContainerWidget::add;
 	using ContainerWidget::remove;
+	using ContainerWidget::destroy;
 
+	Context& context() const override { return context_; }
 	const Font& font() const { return font_; }
-	const nytl::Mat4f transform() const { return transform_; }
+	const nytl::Mat4f transform() const { return transform_.matrix(); }
 	const auto& styles() const { return styles_; }
 
 	GuiListener& listener() { return listener_.get(); }
@@ -140,11 +142,19 @@ public:
 	/// Registers the widget for the next update/updateDevice calls.
 	void addUpdate(Widget&);
 	void addUpdateDevice(Widget&);
+	void removed(Widget&);
 	void moveDestroyWidget(std::unique_ptr<Widget>);
 
 protected:
 	using Widget::gui;
 	using Widget::contains;
+	using Widget::updateScissor;
+
+	// TODO: implement them
+	void bounds(const Rect2f& r) override { Widget::bounds(r); }
+	void hide(bool) override { /* Widget::hide(h); */ }
+	bool hidden() const override { return false; }
+	Rect2f scissor() const override { return rvg::Scissor::reset; }
 
 protected:
 	Context& context_;
@@ -154,15 +164,15 @@ protected:
 	std::unordered_set<Widget*> updateDevice_;
 	std::pair<Widget*, MouseButton> buttonGrab_ {};
 	bool rerecord_ {};
-	nytl::Mat4f transform_ {};
+	rvg::Transform transform_ {};
 
 	std::vector<std::unique_ptr<Widget>> destroyWidgets_;
 
 	std::optional<DefaultStyles> defaultStyles_;
 	Styles styles_;
 
-	Widget* focusWidget_ {};
-	Widget* mouseOverWidget_ {};
+	Widget* globalFocus_ {};
+	Widget* globalMouseOver_ {};
 };
 
 } // namespace vui

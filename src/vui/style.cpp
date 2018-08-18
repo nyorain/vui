@@ -28,9 +28,12 @@ DefaultStyles::DefaultStyles(rvg::Context& ctx) {
 	paints_.bgAlpha = {ctx, bgAlphaData};
 
 	styles_.basicButton.normal.bg = bgData;
+	styles_.basicButton.normal.fg = textData;
 	styles_.basicButton.hovered.bg = bgHoverData;
+	styles_.basicButton.hovered.fg = textData;
 	styles_.basicButton.pressed.bg = bgActiveData;
-	styles_.labeledButton.label = &paints_.text;
+	styles_.basicButton.pressed.fg = textData;
+	styles_.labeledButton.basic = &styles_.basicButton;
 
 	styles_.hint.bg = &paints_.bg;
 	styles_.hint.text = &paints_.text;
@@ -45,8 +48,12 @@ DefaultStyles::DefaultStyles(rvg::Context& ctx) {
 	styles_.checkbox.bg = &paints_.bgAlpha;
 	styles_.checkbox.fg = &paints_.accent;
 
-	styles_.textfield.bg = &paints_.bg;
-	styles_.textfield.text = &paints_.text;
+	auto& ts = styles_.textfield;
+	for(auto* draw : {&ts.focused, &ts.hovered, &ts.normal}) {
+		draw->bg = bgData;
+		draw->text = textData;
+	}
+
 	styles_.textfield.selected = &paints_.accent;
 	styles_.textfield.cursor = &paints_.text;
 }

@@ -27,10 +27,11 @@ public:
 	std::function<void(Textfield&)> onSubmit;
 
 public:
-	Textfield(Gui&, Vec2f pos, std::string_view start = "");
-	Textfield(Gui&, const Rect2f& bounds, std::string_view start = "");
-	Textfield(Gui&, const Rect2f& bounds, std::string_view start,
-		const TextfieldStyle&);
+	Textfield(Gui&, ContainerWidget*, Vec2f pos, std::string_view start = "");
+	Textfield(Gui&, ContainerWidget*, const Rect2f& bounds,
+		std::string_view start = "");
+	Textfield(Gui&, ContainerWidget*, const Rect2f& bounds,
+		std::string_view start, const TextfieldStyle&);
 
 	/// Return the current textfield content.
 	std::u32string_view utf32() const;
@@ -50,10 +51,11 @@ public:
 	void reset(const TextfieldStyle&, const Rect2f&, bool force = false,
 		std::optional<std::string_view> = std::nullopt);
 	void style(const TextfieldStyle&, bool force = false);
-	void relayout(const Rect2f& size) override;
 
 	void hide(bool hide) override;
 	bool hidden() const override;
+	void bounds(const Rect2f& size) override;
+	using Widget::bounds;
 
 	Widget* mouseButton(const MouseButtonEvent&) override;
 	Widget* mouseMove(const MouseMoveEvent&) override;
@@ -68,7 +70,7 @@ public:
 	const auto& style() const { return *style_; }
 
 protected:
-	Textfield(Gui&);
+	Textfield(Gui&, ContainerWidget*);
 
 	/// Updates the selection render state based on the logical state.
 	void updateSelectionDraw();

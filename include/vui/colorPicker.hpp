@@ -23,8 +23,10 @@ public:
 	std::function<void(ColorPicker&)> onChange;
 
 public:
-	ColorPicker(Gui&, const Rect2f& bounds, const Color& start = {20, 20, 20});
-	ColorPicker(Gui&, const Rect2f& bounds, const Color& start,
+	ColorPicker(Gui&, ContainerWidget*, const Rect2f& bounds,
+			const Color& start = {20, 20, 20});
+	ColorPicker(Gui&, ContainerWidget*, const Rect2f& bounds,
+			const Color& start,
 			const ColorPickerStyle& style);
 
 	/// Picks the given color. Will not trigger an onChange callback.
@@ -40,7 +42,8 @@ public:
 	void reset(const ColorPickerStyle&, const Rect2f&, bool force = false,
 		std::optional<nytl::Vec3f> hsv = std::nullopt);
 	void style(const ColorPickerStyle&, bool force = false);
-	void relayout(const Rect2f&) override;
+	void bounds(const Rect2f&) override;
+	using Widget::bounds;
 
 	void hide(bool hide) override;
 	bool hidden() const override;
@@ -52,9 +55,11 @@ public:
 	const auto& style() const { return *style_; }
 
 protected:
-	ColorPicker(Gui&);
-
+	ColorPicker(Gui&, ContainerWidget*);
 	Rect2f ownScissor() const override;
+
+	// pos in local coordinates
+	// real: if there was really a click or this comes from move
 	void click(Vec2f pos, bool real);
 
 protected:
@@ -74,6 +79,7 @@ protected:
 	bool slidingHue_ {};
 };
 
+/*
 /// A button that shows a ColorPicker when pressed.
 /// Displays the selected color as button "label".
 class ColorButton : public BasicButton {
@@ -115,5 +121,6 @@ protected:
 	Pane* pane_;
 	ColorPicker* cp_;
 };
+*/
 
 } // namespace vui

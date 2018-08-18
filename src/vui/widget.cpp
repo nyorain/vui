@@ -8,6 +8,16 @@
 namespace vui {
 
 // Widget
+Widget::~Widget() {
+	gui().removed(*this);
+}
+
+void Widget::hide(bool hide) {
+	if(hide && parent()) {
+		parent()->childChanged();
+	}
+}
+
 bool Widget::contains(Vec2f point) const {
 	dlg_assert(bounds().size.x >= 0 && bounds().size.y >= 0);
 	return nytl::contains(bounds_, point);
@@ -26,7 +36,11 @@ void Widget::registerUpdateDevice() {
 }
 
 void Widget::bounds(const Rect2f& b) {
-	dlg_assert(b.size.x >= 0 && b.size.y >= 0);
+	dlg_assertm(b.size.x >= 0 && b.size.y >= 0, "{}", b);
+	if(parent()) {
+		parent()->childChanged();
+	}
+
 	if(!(b == bounds_)) {
 		bounds_ = b;
 		updateScissor();
@@ -73,9 +87,13 @@ Rect2f Widget::scissor() const {
 	}
 }
 
+bool Widget::isDescendant(const Widget& up) const {
+	return parent() && (&up == parent() || parent()->isDescendant(up));
+}
+
 void Widget::parent(Widget& widget, ContainerWidget* newParent) {
-	dlg_assert(!widget.parent_ || !widget.parent_->isChild(widget));
-	dlg_assert(!newParent || newParent->isChild(widget));
+	dlg_assert(!widget.parent_ || !widget.parent_->hasChild(widget));
+	dlg_assert(!newParent || newParent->hasChild(widget));
 	widget.parent_ = newParent;
 }
 

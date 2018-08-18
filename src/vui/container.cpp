@@ -1,10 +1,23 @@
 #include <vui/container.hpp>
+#include <vui/gui.hpp>
 #include <dlg/dlg.hpp>
+#include <algorithm>
 
 namespace vui {
+namespace {
+
+template<typename C>
+auto findWidget(C& widgets, const Widget& tofind) {
+	return std::find_if(widgets.begin(), widgets.end(),
+			[&](const std::unique_ptr<Widget>& ptr){
+				return ptr.get() == &tofind;
+			});
+}
+
+} // anon namespace
 
 // WidgetContainer
-Widget* WidgetContainer::widgetAt(Vec2f pos) {
+Widget* ContainerWidget::widgetAt(Vec2f pos) {
 	// since widgets are ordered by z order (lower to higher) we
 	// have to traverse them in reverse
 	for(auto it = widgets_.rbegin(); it != widgets_.rend(); ++it) {
@@ -17,11 +30,11 @@ Widget* WidgetContainer::widgetAt(Vec2f pos) {
 	return nullptr;
 }
 
-void WidgetContainer::refreshMouseOver(Vec2f pos) {
-	// NOTE: although it would be a neat optimization, we can't
-	// start with checking if it is still over the current mouseOver_
-	// and have to start from scratch every time since position
-	// from higher, overlapping widgets could have changed.
+void ContainerWidget::refreshMouseOver(Vec2f pos) {
+	if(!invalidated_ && mouseOver_ && mouseOver_->contains(pos)) {
+		return;
+	}
+
 	auto over = widgetAt(pos);
 	if(over != mouseOver_) {
 		if(mouseOver_) {
@@ -34,27 +47,30 @@ void WidgetContainer::refreshMouseOver(Vec2f pos) {
 	}
 }
 
-void WidgetContainer::refreshFocus() {
+void ContainerWidget::refreshFocus() {
 	if(focus_ && focus_->hidden()) {
 		focus_->focus(false);
 		focus_ = nullptr;
 	}
 }
 
-void WidgetContainer::reorder() {
-	std::sort(widgets_.begin(), widgets_.end(), zWidgetOrder);
-}
-
-// we always call the refresh(mouseOver/focus) since the widgets
-// properties might have changed from the time they got focus/mouseOver
-// to now (e.g. they might have gone hidden)
-Widget* WidgetContainer::mouseMove(const MouseMoveEvent& ev) {
+Widget* ContainerWidget::mouseMove(const MouseMoveEvent& ev) {
 	refreshMouseOver(ev.position);
+	if(invalidated_) {
+		refreshFocus();
+		invalidated_ = false;
+	}
+
 	return mouseOver_ ? mouseOver_->mouseMove(ev) : nullptr;
 }
 
-Widget* WidgetContainer::mouseButton(const MouseButtonEvent& ev) {
-	refreshMouseOver(ev.position);
+Widget* ContainerWidget::mouseButton(const MouseButtonEvent& ev) {
+	if(invalidated_) {
+		refreshMouseOver(ev.position);
+		refreshFocus();
+		invalidated_ = false;
+	}
+
 	if(mouseOver_ != focus_) {
 		if(focus_) {
 			focus_->focus(false);
@@ -68,133 +84,182 @@ Widget* WidgetContainer::mouseButton(const MouseButtonEvent& ev) {
 	return mouseOver_? mouseOver_->mouseButton(ev) : nullptr;
 }
 
-Widget* WidgetContainer::mouseWheel(const MouseWheelEvent& ev) {
-	refreshMouseOver(ev.position);
+Widget* ContainerWidget::mouseWheel(const MouseWheelEvent& ev) {
+	if(invalidated_) {
+		refreshMouseOver(ev.position);
+		refreshFocus();
+		invalidated_ = false;
+	}
+
 	return mouseOver_? mouseOver_->mouseWheel(ev) : nullptr;
 }
 
-Widget* WidgetContainer::key(const KeyEvent& ev) {
-	refreshFocus();
+Widget* ContainerWidget::key(const KeyEvent& ev) {
+	if(invalidated_) {
+		refreshFocus();
+	}
+
 	return focus_ ? focus_->key(ev) : nullptr;
 }
 
-Widget* WidgetContainer::textInput(const TextInputEvent& ev) {
-	refreshFocus();
+Widget* ContainerWidget::textInput(const TextInputEvent& ev) {
+	if(invalidated_) {
+		refreshFocus();
+	}
+
 	return focus_ ? focus_->textInput(ev) : nullptr;
 }
 
-void WidgetContainer::focus(bool gained) {
+void ContainerWidget::focus(bool gained) {
 	if(!gained && focus_) {
 		focus_->focus(false);
 		focus_ = nullptr;
 	}
 }
 
-void WidgetContainer::mouseOver(bool gained) {
+void ContainerWidget::mouseOver(bool gained) {
 	if(!gained && mouseOver_) {
 		mouseOver_->mouseOver(false);
 		mouseOver_ = nullptr;
 	}
 }
 
-void WidgetContainer::draw(vk::CommandBuffer cb) const {
+void ContainerWidget::draw(vk::CommandBuffer cb) const {
 	for(auto& widget : widgets_) {
 		dlg_assert(widget);
 		widget->draw(cb);
 	}
 }
 
-Widget& WidgetContainer::add(std::unique_ptr<Widget> widget) {
-	dlg_assert(widget);
-	auto ub = std::upper_bound(widgets_.begin(), widgets_.end(),
-		widget, zWidgetOrder);
-	widgets_.insert(ub, std::move(widget));
-	return *widgets_.back();
+Widget& ContainerWidget::add(std::unique_ptr<Widget> widget) {
+	dlg_assert(widget && findWidget(widgets_, *widget) == widgets_.end());
+	auto& ret = *widget;
+	widgets_.emplace_back(std::move(widget));
+	if(ret.parent() != this) {
+		dlg_assertm(!ret.parent(), "ContainerWidget::add: "
+			"given widget already has a parent");
+		Widget::parent(ret, this);
+	}
+
+	ret.updateScissor();
+	return ret;
 }
 
-void WidgetContainer::updateTransform(const nytl::Mat4f& mat) {
+std::unique_ptr<Widget> ContainerWidget::remove(const Widget& widget) {
+	auto it = findWidget(widgets_, widget);
+	if(it == widgets_.end()) {
+		return {};
+	}
+
+	// not sure if focus/mouseOver calls are needed/good idea
+	// but since the returned widget might not be destroyed and re-added
+	// later on it's probably cleaner/safer this way
+	if(focus_ == &widget) {
+		focus_->focus(false);
+		focus_ = nullptr;
+	}
+
+	if(mouseOver_ == &widget) {
+		mouseOver_->mouseOver(false);
+		mouseOver_ = nullptr;
+	}
+
+
+	auto ret = std::move(*it);
+	widgets_.erase(it);
+	gui().removed(*ret);
+	return ret;
+}
+
+bool ContainerWidget::destroy(const Widget& widget) {
+	auto moved = remove(widget);
+	if(!moved) {
+		return false;
+	}
+
+	gui().moveDestroyWidget(std::move(moved));
+	return true;
+}
+
+bool ContainerWidget::raiseAbove(const Widget& raise, const Widget& above) {
+	auto r = findWidget(widgets_, raise);
+	auto a = findWidget(widgets_, above);
+	if(r == widgets_.end() || a == widgets_.end() || r == a) {
+		return false;
+	}
+
+	if(r >= a) {
+		return true;
+	}
+
+	// basically (sketches help): move r after a
+	std::rotate(r, r + 1, a + 1);
+	gui().rerecord();
+	return true;
+}
+
+bool ContainerWidget::lowerBelow(const Widget& lower, const Widget& below) {
+	auto l = findWidget(widgets_, lower);
+	auto b = findWidget(widgets_, below);
+	if(l == widgets_.end() || b == widgets_.end() || l == b) {
+		return false;
+	}
+
+	if(l <= b) {
+		return true;
+	}
+
+	// basically (sketches help): move l before b
+	std::rotate(b, l, l);
+	gui().rerecord();
+	return true;
+}
+
+const Widget* ContainerWidget::highestWidget() const {
+	return widgets_.empty() ? nullptr : widgets_.back().get();
+}
+
+const Widget* ContainerWidget::lowestWidget() const {
+	return widgets_.empty() ? nullptr : widgets_.front().get();
+}
+
+bool ContainerWidget::hasChild(const Widget& w) const {
+	// faster than iterating through all children
+	return w.parent() == this;
+}
+
+bool ContainerWidget::hasDescendant(const Widget& w) const {
+	// faster than iterating through all children for each generation
+	return w.isDescendant(*this);
+}
+
+void ContainerWidget::childChanged() {
+	invalidated_ = true;
+}
+
+void ContainerWidget::updateScissor() {
+	Widget::updateScissor();
 	for(auto& w : widgets_) {
 		dlg_assert(w);
-		w->updateTransform(mat);
+		w->updateScissor();
 	}
 }
 
-// ContainerWidget
-ContainerWidget::ContainerWidget(Gui& gui)
-	: Widget(gui), WidgetContainer() {
-}
-
-void ContainerWidget::hide(bool hide) {
-	for(auto& w : widgets_) {
-		dlg_assert(w);
-		w->hide(hide);
-	}
-}
-
-void ContainerWidget::position(Vec2f pos) {
-	auto old = position();
-	Widget::position(pos);
+void ContainerWidget::bounds(const Rect2f& b) {
+	// NOTE: all widgets will currently call updateScissor twice,
+	// once triggered by position and the other by our own updateScissor
+	// call that is called in Widget::bounds
 
 	// we just move all widgets by the offset
-	for(auto& w : widgets_) {
-		dlg_assert(w);
-		auto rel = w->position() - old;
-		w->position(pos + rel);
-		w->intersectScissor(scissor());
+	if(b.position != position()) {
+		auto off = b.position - position();
+		for(auto& w : widgets_) {
+			dlg_assert(w);
+			w->position(w->position() + off);
+		}
 	}
-}
 
-void ContainerWidget::size(Vec2f size) {
-	Widget::size(size);
-	for(auto& w : widgets_) {
-		dlg_assert(w);
-		w->intersectScissor(scissor());
-	}
-}
-
-void ContainerWidget::refreshTransform() {
-	Widget::refreshTransform();
-	for(auto& w : widgets_) {
-		dlg_assert(w);
-		w->refreshTransform();
-	}
-}
-
-Widget& ContainerWidget::add(std::unique_ptr<Widget> w) {
-	w->intersectScissor(scissor());
-	return WidgetContainer::add(std::move(w));
-}
-
-Widget* ContainerWidget::mouseMove(const MouseMoveEvent& ev) {
-	return WidgetContainer::mouseMove(ev);
-}
-
-Widget* ContainerWidget::mouseButton(const MouseButtonEvent& ev) {
-	return WidgetContainer::mouseButton(ev);
-}
-
-Widget* ContainerWidget::mouseWheel(const MouseWheelEvent& ev) {
-	return WidgetContainer::mouseWheel(ev);
-}
-
-Widget* ContainerWidget::key(const KeyEvent& ev) {
-	return WidgetContainer::key(ev);
-}
-
-Widget* ContainerWidget::textInput(const TextInputEvent& ev) {
-	return WidgetContainer::textInput(ev);
-}
-
-void ContainerWidget::focus(bool gained) {
-	return WidgetContainer::focus(gained);
-}
-
-void ContainerWidget::mouseOver(bool gained) {
-	return WidgetContainer::mouseOver(gained);
-}
-
-void ContainerWidget::draw(vk::CommandBuffer cb) const {
-	WidgetContainer::draw(cb);
+	Widget::bounds(b);
 }
 
 } // namespace vui

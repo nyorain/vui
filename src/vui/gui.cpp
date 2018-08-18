@@ -7,6 +7,14 @@
 #include <cmath>
 
 namespace vui {
+namespace {
+
+/// Returns whether desc is in subtree of root
+bool inSubtree(const Widget& desc, const Widget& root) {
+	return &desc == &root || desc.isDescendant(root);
+}
+
+} // anon namespace
 
 // GuiListener
 GuiListener& GuiListener::nop() {
@@ -15,22 +23,21 @@ GuiListener& GuiListener::nop() {
 }
 
 // Gui
-Gui::Gui(Context& ctx, const Font& font, Styles&& s, GuiListener& listener)
-		: WidgetContainer(*this),  context_(ctx), font_(font),
-			listener_(listener), styles_(std::move(s)) {
-	nytl::identity(transform_);
-}
-
 Gui::Gui(Context& ctx, const Font& font, GuiListener& listener)
-		: WidgetContainer(*this),  context_(ctx), font_(font),
+		: ContainerWidget(*this, nullptr),  context_(ctx), font_(font),
 			listener_(listener) {
+	transform_ = {ctx};
 	defaultStyles_.emplace(ctx);
 	styles_ = defaultStyles_->styles();
 }
 
+Gui::Gui(Context& ctx, const Font& font, Styles&& s, GuiListener& listener)
+		: ContainerWidget(*this, nullptr),  context_(ctx), font_(font),
+			listener_(listener), styles_(std::move(s)) {
+}
+
 void Gui::transform(const nytl::Mat4f& mat) {
-	transform_ = mat;
-	refreshTransform();
+	transform_.matrix(mat);
 }
 
 Widget* Gui::mouseMove(const MouseMoveEvent& ev) {
@@ -38,10 +45,10 @@ Widget* Gui::mouseMove(const MouseMoveEvent& ev) {
 		return buttonGrab_.first->mouseMove(ev);
 	}
 
-	auto w = WidgetContainer::mouseMove(ev);
+	auto w = ContainerWidget::mouseMove(ev);
 	if(mouseOver() != w) {
-		listener().mouseOver(mouseOverWidget_, w);
-		mouseOverWidget_ = w;
+		listener().mouseOver(globalMouseOver_, w);
+		globalMouseOver_ = w;
 	}
 
 	return w;
@@ -56,10 +63,10 @@ Widget* Gui::mouseButton(const MouseButtonEvent& ev) {
 		return w;
 	}
 
-	auto w = WidgetContainer::mouseButton(ev);
+	auto w = ContainerWidget::mouseButton(ev);
 	if(focus() != w) {
 		listener().focus(focus(), w);
-		focusWidget_ = w;
+		globalFocus_ = w;
 	}
 
 	if(ev.pressed && w) {
@@ -77,18 +84,18 @@ Widget* Gui::mouseButton(const MouseButtonEvent& ev) {
 }
 
 void Gui::focus(bool gained) {
-	WidgetContainer::focus(gained);
+	ContainerWidget::focus(gained);
 	if(!gained && focus()) {
 		listener().focus(focus(), nullptr);
-		focusWidget_ = nullptr;
+		globalFocus_ = nullptr;
 	}
 }
 
 void Gui::mouseOver(bool gained) {
-	WidgetContainer::mouseOver(gained);
+	ContainerWidget::mouseOver(gained);
 	if(!gained && mouseOver()) {
 		listener().focus(mouseOver(), nullptr);
-		mouseOverWidget_ = nullptr;
+		globalMouseOver_ = nullptr;
 	}
 }
 
@@ -120,32 +127,36 @@ bool Gui::updateDevice() {
 
 void Gui::draw(vk::CommandBuffer cb) const {
 	context().bindDefaults(cb);
-	WidgetContainer::draw(cb);
+	transform_.bind(cb);
+	ContainerWidget::draw(cb);
+}
+
+// informs the gui object that this widget has been removed from the hierachy
+void Gui::removed(Widget& widget) {
+	if(globalFocus_ && inSubtree(widget, *globalFocus_)) {
+		listener().focus(globalFocus_, nullptr);
+		globalFocus_ = nullptr;
+	}
+
+	if(globalMouseOver_ && inSubtree(widget, *globalMouseOver_)) {
+		listener().mouseOver(globalMouseOver_, nullptr);
+		globalMouseOver_ = nullptr;
+	}
+
+	if(buttonGrab_.first && inSubtree(widget, *buttonGrab_.first)) {
+		buttonGrab_ = {};
+	}
 }
 
 void Gui::moveDestroyWidget(std::unique_ptr<Widget> w) {
 	dlg_assert(w);
-
-	// TODO: hack atm
-	// we want to remove all this stuff for ALL (sub-)children of w
-
-	// if(focusWidget_ == w.get()) {
-		focusWidget_ = nullptr;
-	// }
-
-	// if(mouseOverWidget_ == w.get()) {
-		mouseOverWidget_ = nullptr;
-	// }
-
-	// if(buttonGrab_.first == w.get()) {
-		buttonGrab_ = {};
-	// }
-
 	destroyWidgets_.emplace_back(std::move(w));
 }
+
 void Gui::addUpdate(Widget& widget) {
 	update_.insert(&widget);
 }
+
 void Gui::addUpdateDevice(Widget& widget) {
 	updateDevice_.insert(&widget);
 }

@@ -14,15 +14,17 @@
 
 namespace vui {
 
-Textfield::Textfield(Gui& gui, Vec2f pos, std::string_view start) :
-	Textfield(gui, {pos, {autoSize, autoSize}}, start) {
+Textfield::Textfield(Gui& gui, ContainerWidget* p, Vec2f pos,
+	std::string_view start) :
+		Textfield(gui, p, {pos, {autoSize, autoSize}}, start) {
 }
 
-Textfield::Textfield(Gui& gui, const Rect2f& bounds, std::string_view start) :
-	Textfield(gui, bounds, start, gui.styles().textfield) {
+Textfield::Textfield(Gui& gui, ContainerWidget* p, const Rect2f& bounds,
+	std::string_view start) :
+		Textfield(gui, p, bounds, start, gui.styles().textfield) {
 }
 
-Textfield::Textfield(Gui& gui) : Widget(gui) {
+Textfield::Textfield(Gui& gui, ContainerWidget* p) : Widget(gui, p) {
 	bg_ = {context()};
 	selection_.bg = {context(), {}, {}, {true, 0.f}};
 	selection_.bg.disable(true);
@@ -39,9 +41,10 @@ Textfield::Textfield(Gui& gui) : Widget(gui) {
 	bgStroke_ = {context(), {}};
 }
 
-Textfield::Textfield(Gui& gui, const Rect2f& bounds, std::string_view start,
-		const TextfieldStyle& style) : Textfield(gui) {
-	reset(style, bounds, false, start);
+Textfield::Textfield(Gui& gui, ContainerWidget* p, const Rect2f& bounds,
+	std::string_view str, const TextfieldStyle& style) :
+		Textfield(gui, p) {
+	reset(style, bounds, false, str);
 }
 
 void Textfield::reset(const TextfieldStyle& style, const Rect2f& bounds,
@@ -49,7 +52,7 @@ void Textfield::reset(const TextfieldStyle& style, const Rect2f& bounds,
 	auto sc = force || &style != &this->style();
 	auto bc = !(bounds == this->bounds());
 
-	if(!bc && !sc) {
+	if(!bc && !sc && !ostring) {
 		return;
 	}
 
@@ -59,14 +62,14 @@ void Textfield::reset(const TextfieldStyle& style, const Rect2f& bounds,
 	const auto& string = ostring ? nytl::toUtf32(*ostring) : text_.utf32();
 	auto& font = style.font ? *style.font : gui().font();
 	auto textSize = nytl::Vec2f {font.width(string), font.height()};
-	auto textPos = pos + style.padding;
+	auto textPos = style.padding; // local
 
 	if(size.x != autoSize) {
 		size.x = font.width(U".:This is the default textfield length:.");
 	}
 
 	if(size.y != autoSize) {
-		textPos.y = pos.y + (size.y - textSize.y) / 2;
+		textPos.y = (size.y - textSize.y) / 2;
 	} else {
 		size.y = textSize.y + 2 * style.padding.y;
 	}
@@ -88,15 +91,16 @@ void Textfield::reset(const TextfieldStyle& style, const Rect2f& bounds,
 	bgc->rounding = style.rounding;
 
 	auto tc = text_.change();
-	tc->position = textPos;
+	tc->position = pos + textPos;
 	tc->utf32 = string;
+	tc->font = &font;
 
 	updateSelectionDraw();
 	updateCursorPosition();
 
 	// propagate
 	if(bc) {
-		Widget::relayout(bounds);
+		Widget::bounds({pos, size});
 	}
 
 	if(sc) {
@@ -108,7 +112,7 @@ void Textfield::reset(const TextfieldStyle& style, const Rect2f& bounds,
 	}
 }
 
-void Textfield::relayout(const Rect2f& bounds) {
+void Textfield::bounds(const Rect2f& bounds) {
 	reset(style(), bounds);
 }
 
@@ -128,6 +132,8 @@ void Textfield::utf32(std::u32string_view str) {
 }
 
 void Textfield::hide(bool hide) {
+	Widget::hide(hide);
+
 	// Textfield has many elements to hide/show and so this method
 	// is easy to get wrong. Should work in all possible states
 	bg_.disable(hide);

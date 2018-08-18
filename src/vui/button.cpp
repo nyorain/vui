@@ -42,11 +42,11 @@ void BasicButton::reset(const BasicButtonStyle& style, const Rect2f& bounds,
 	auto bgc = bg_.change();
 	bgc->size = size;
 	bgc->position = pos;
-	bgc->drawMode.stroke = stroke ? 2.f : 0.f;
+	bgc->drawMode = {true, stroke ? 2.f : 0.f};
 	bgc->rounding = style.rounding;
 
 	if(bc) {
-		Widget::relayout(bounds);
+		Widget::bounds(bounds);
 	}
 
 	if(sc) {
@@ -59,7 +59,7 @@ void BasicButton::style(const BasicButtonStyle& style, bool force) {
 	reset(style, bounds(), force);
 }
 
-void BasicButton::relayout(const nytl::Rect2f& bounds) {
+void BasicButton::bounds(const nytl::Rect2f& bounds) {
 	reset(style(), bounds, false);
 }
 
@@ -105,6 +105,7 @@ Widget* BasicButton::mouseButton(const MouseButtonEvent& event) {
 }
 
 void BasicButton::hide(bool hide) {
+	Widget::hide(hide);
 	bg_.disable(hide);
 	bg_.disable(drawStyle().bgStroke.has_value(), DrawType::stroke);
 }
@@ -146,60 +147,65 @@ Cursor BasicButton::cursor() const {
 }
 
 // Button
-LabeledButton::LabeledButton(Gui& gui, Vec2f pos, std::string_view text) :
-	LabeledButton(gui, {pos, {autoSize, autoSize}}, text) {
+LabeledButton::LabeledButton(Gui& gui, ContainerWidget* p, Vec2f pos,
+		std::string_view text) :
+	LabeledButton(gui, p, {pos, {autoSize, autoSize}}, text) {
 }
 
-LabeledButton::LabeledButton(Gui& gui, const Rect2f& b, std::string_view txt) :
-	LabeledButton(gui, b, txt, gui.styles().labeledButton) {
+LabeledButton::LabeledButton(Gui& gui, ContainerWidget* p, const Rect2f& b,
+		std::string_view txt) :
+	LabeledButton(gui, p, b, txt, gui.styles().labeledButton) {
 }
 
-LabeledButton::LabeledButton(Gui& gui, std::string_view label) :
-		BasicButton(gui) {
+LabeledButton::LabeledButton(Gui& gui, ContainerWidget* p,
+		std::string_view label) : BasicButton(gui, p) {
 	label_ = {context(), label, gui.font(), {}};
 	fgPaint_ = {context(), {}};
 }
 
-LabeledButton::LabeledButton(Gui& gui, const Rect2f& bounds,
+LabeledButton::LabeledButton(Gui& gui, ContainerWidget* p, const Rect2f& bounds,
 	std::string_view text, const LabeledButtonStyle& xstyle) :
-		LabeledButton(gui, text) {
-	style(xstyle, true);
-	relayout(bounds);
+		LabeledButton(gui, p, "") {
+	reset(xstyle, bounds, false, text);
 }
 
 void LabeledButton::reset(const LabeledButtonStyle& style,
-		const Rect2f& bounds, bool force) {
+		const Rect2f& bounds, bool force, std::optional<std::string_view> ostr) {
 	auto sc = force || &style != &this->style(); // style change
 	auto bc = !(bounds == this->bounds()); // bounds change
 
-	if(!sc && !bc) {
+	if(!sc && !bc && !ostr) {
 		return;
 	}
 
 	// analyze
 	auto pos = bounds.position;
 	auto size = bounds.size;
+	auto str = ostr ? *ostr : label_.utf8();
 	auto& font = style.font ? *style.font : gui().font();
 	auto textSize = nytl::Vec2f {font.width(label_.utf8()), font.height()};
-	auto textPos = pos + style.padding;
+	auto textPos = style.padding; // local
 
 	if(size.x != autoSize) {
-		textPos.x = pos.x + (size.x - textSize.x) / 2;
+		textPos.x = (size.x - textSize.x) / 2;
 	} else {
 		size.x = textSize.x + 2 * style.padding.x;
 	}
 
 	if(size.y != autoSize) {
-		textPos.y = pos.y + (size.y - textSize.y) / 2;
+		textPos.y = (size.y - textSize.y) / 2;
 	} else {
 		size.y = textSize.y + 2 * style.padding.y;
 	}
 
 	// change
 	auto tc = label_.change();
+	tc->position = pos + textPos;
 	tc->font = &font;
-	tc->position = pos;
+	tc->utf8(str);
 
+	// propagate
+	style_ = &style;
 	auto& s = style.basic ? *style.basic : gui().styles().basicButton;
 	BasicButton::reset(s, {pos, size}, force);
 }
@@ -214,7 +220,7 @@ void LabeledButton::style(const LabeledButtonStyle& style, bool force) {
 	reset(style, bounds(), force);
 }
 
-void LabeledButton::relayout(const Rect2f& bounds) {
+void LabeledButton::bounds(const Rect2f& bounds) {
 	reset(style(), bounds, false);
 }
 
@@ -233,6 +239,11 @@ void LabeledButton::updatePaints() {
 	auto& draw = drawStyle();
 	dlg_assert(draw.fg);
 	*fgPaint_.change() = *draw.fg;
+}
+
+void LabeledButton::label(std::string_view label, bool resize) {
+	auto b = resize ? bounds() : Rect2f {position(), {autoSize, autoSize}};
+	reset(style(), b, false, label);
 }
 
 } // namespace vui

@@ -13,8 +13,11 @@ namespace vui {
 class ContainerWidget : public Widget {
 public:
 	/// Raises/lowers the first widget above/below the second one.
-	virtual void raiseAbove(const Widget& raise, const Widget& above);
-	virtual void lowerBelow(const Widget& lower, const Widget& below);
+	/// Returns false if any of the widgets isn't a direct child or
+	/// both widgets are the same.
+	/// Will have no effect if the conditions are already met.
+	virtual bool raiseAbove(const Widget& raise, const Widget& above);
+	virtual bool lowerBelow(const Widget& lower, const Widget& below);
 
 	/// Return the highest/lowest widgets ordering-wise.
 	virtual const Widget* highestWidget() const;
@@ -22,11 +25,11 @@ public:
 
 	/// Returns whether the given widget is a direct child of this one.
 	/// Returns false for itself.
-	virtual bool isChild(const Widget&) const;
+	virtual bool hasChild(const Widget&) const;
 
 	/// Returns whether the given widget is a transitive child of this one.
 	/// Returns false for itself.
-	virtual bool isDescendant(const Widget&) const;
+	virtual bool hasDescendant(const Widget&) const;
 
 	/// To be called when a child changes properties relevant for this
 	/// such as position, size or visibility.
@@ -36,7 +39,7 @@ public:
 
 	/// Called when a child has changed in a way that the complete
 	/// layout has to be recalculated.
-	virtual void relayout();
+	virtual void relayout() {}
 
 	Widget* mouseMove(const MouseMoveEvent&) override;
 	Widget* mouseButton(const MouseButtonEvent&) override;
@@ -47,6 +50,7 @@ public:
 	void mouseOver(bool gained) override;
 	void draw(vk::CommandBuffer) const override;
 	void updateScissor() override;
+	void bounds(const Rect2f&) override;
 
 	/// Returns the child widget with focus/over which the mouse hovers.
 	/// Returns nullptr if there is no such child.
@@ -77,16 +81,21 @@ protected:
 	[[nodiscard]] virtual std::unique_ptr<Widget> remove(const Widget&);
 
 	/// If the given widget isn't a child returns nullptr.
+	/// Otherwise destroys the given widget (as soon as possible).
+	/// It must not accessed in any way after this call.
+	/// See also the remove method if you e.g. may want to readd
+	/// the widget later on.
 	virtual bool destroy(const Widget&);
 
 	/// Creates a widget of the given type with the given arguments and
 	/// adds it to this container. The widget must have a
-	/// constructor(Gui&, Args&&...).
+	/// constructor(Gui&, ContainerWidget*, Args&&...).
 	/// Returns a reference to the created widget.
 	template<typename W, typename... Args>
 	W& create(Args&&... args) {
 		static_assert(std::is_base_of_v<Widget, W>, "Can only create widgets");
-		auto widget = std::make_unique<W>(gui(), std::forward<Args>(args)...);
+		auto widget = std::make_unique<W>(gui(), this,
+			std::forward<Args>(args)...);
 		auto& ret = *widget;
 		add(std::move(widget));
 		return ret;
@@ -96,9 +105,13 @@ protected:
 	// sorted by order in which they should be drawn and otherwise
 	// by add order
 	std::vector<std::unique_ptr<Widget>> widgets_;
+
+	// both always direct children
 	Widget* focus_ {};
 	Widget* mouseOver_ {};
-	bool invalidated_ {}; // whether discard input assumptions
+
+	// whether discard input assumptions
+	bool invalidated_ {};
 };
 
 } // namespace vui

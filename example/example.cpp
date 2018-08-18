@@ -7,11 +7,11 @@
 
 #include "vui/gui.hpp"
 #include "vui/button.hpp"
-#include "vui/window.hpp"
+// #include "vui/window.hpp"
 #include "vui/colorPicker.hpp"
 #include "vui/textfield.hpp"
-#include "vui/checkbox.hpp"
-#include "vui/dat.hpp"
+// #include "vui/checkbox.hpp"
+// #include "vui/dat.hpp"
 
 #include <rvg/context.hpp>
 #include <rvg/shapes.hpp>
@@ -42,7 +42,8 @@
 #include <chrono>
 #include <array>
 
-static const std::string baseResPath = "../../";
+// static const std::string baseResPath = "../";
+static const std::string baseResPath = "../subprojects/vui/";
 
 // using namespace vui;
 using namespace nytl::vec::operators;
@@ -196,46 +197,16 @@ int main() {
 
 	auto bgPaint = rvg::Paint(ctx, bgPaintData);
 
-	vui::Styles styles;
-
-	// hint
-	styles.hint.bg = &hintBgPaint;
-	styles.hint.text = &hintTextPaint;
-	styles.hint.font = &lsFont;
-
-	// button
-	styles.basicButton.normal.bg = bgPaintData;
-	styles.basicButton.hovered.bg = rvg::colorPaint({20, 20, 20});
-	styles.basicButton.pressed.bg = rvg::colorPaint({35, 35, 35});
-
-	styles.labeledButton.label = &hintTextPaint;
-
-	// window
-	styles.window.bg = &hintBgPaint;
-	styles.window.rounding = {20.f, 20.f, 20.f, 20.f};
-	styles.window.outerPadding = {20.f, 20.f};
-
-	// pane
-	styles.pane.bg = &hintBgPaint;
-
-	// textfield
-	auto selectedPaint = rvg::Paint {ctx, rvg::colorPaint({50, 50, 50})};
-	styles.textfield.bg = &bgPaint;
-	styles.textfield.text = &hintTextPaint;
-	styles.textfield.selected = &selectedPaint;
-	styles.textfield.cursor = &hintTextPaint;
-
-	// color picker
-	styles.colorPicker.marker = &hintBgPaint;
-
-	// checkbox
-	styles.checkbox.bg = &bgPaint;
-	styles.checkbox.fg = &svgPaint;
-
 	// gui
 	// vui::Gui gui(ctx, lsFont, std::move(styles));
 	vui::Gui gui(ctx, lsFont);
+	auto bounds = nytl::Rect2f {100, 100, vui::autoSize, vui::autoSize};
+	auto& cp = gui.create<vui::ColorPicker>(bounds);
+	cp.onChange = [&](auto& cp){
+		svgPaint.paint(rvg::colorPaint(cp.picked()));
+	};
 
+	/*
 	auto& win = gui.create<vui::Window>(nytl::Rect2f {100, 100, 500, 880});
 	auto& button = win.create<vui::LabeledButton>("button, waddup");
 	button.onClick = [&](auto&) { dlg_info("Clicked!"); };
@@ -252,9 +223,11 @@ int main() {
 	tf.onChange = [&](auto& tf) {
 		dlg_info("changed: {}", tf.utf8());
 	};
+	*/
 
 	svgPaint = {ctx, rvg::colorPaint(cp.picked())};
 
+	/*
 	// dat
 	// https://www.reddit.com/r/leagueoflegends/comments/3nnm36
 	auto& panel = gui.create<vui::dat::Panel>(
@@ -281,6 +254,7 @@ int main() {
 
 	panel.create<vui::dat::Textfield>("Awesomeness", "Over 9000");
 	panel.create<vui::dat::Button>("Unclog the frog");
+	*/
 
 	// render recoreding
 	renderer.onRender += [&](vk::CommandBuffer buf){
@@ -371,7 +345,7 @@ int main() {
 				shape.change()->points = ktc::flatten(subpath);
 			}
 		} else if(ev.button == ny::MouseButton::right) {
-			win.position(p);
+			// win.position(p);
 		}
 	};
 
@@ -424,7 +398,7 @@ int main() {
 			info.wait = wait;
 		}
 
-		renderer.renderBlock(info);
+		renderer.renderSync(info);
 
 		if(printFrames) {
 			++fpsCounter;

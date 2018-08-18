@@ -25,9 +25,10 @@ public:
 	void reset(const BasicButtonStyle&, const Rect2f&, bool force = false);
 	void style(const BasicButtonStyle&, bool reload = false);
 
-	void bounds(const nytl::Rect2f&) override;
 	void hide(bool hide) override;
 	bool hidden() const override;
+	void bounds(const nytl::Rect2f&) override;
+	using Widget::bounds;
 
 	Widget* mouseButton(const MouseButtonEvent&) override;
 	Widget* mouseMove(const MouseMoveEvent&) override;
@@ -66,26 +67,27 @@ public:
 	std::function<void(LabeledButton&)> onClick;
 
 public:
-	LabeledButton(Gui&, Vec2f pos, std::string_view label);
-	LabeledButton(Gui&, const Rect2f& bounds, std::string_view label);
-	LabeledButton(Gui&, const Rect2f& bounds, std::string_view label,
-		const LabeledButtonStyle&);
+	LabeledButton(Gui&, ContainerWidget*, Vec2f pos, std::string_view label);
+	LabeledButton(Gui&, ContainerWidget*, const Rect2f& bounds,
+		std::string_view label);
+	LabeledButton(Gui&, ContainerWidget*, const Rect2f& bounds,
+		std::string_view label, const LabeledButtonStyle&);
 
 	/// Changes the buttons label.
-	void label(std::string_view);
+	void label(std::string_view, bool resize);
 	void reset(const LabeledButtonStyle&, const Rect2f&, bool force = false,
 		std::optional<std::string_view> label = std::nullopt);
 	void style(const LabeledButtonStyle&, bool reload = false);
 
-	void bounds(const nytl::Rect2f& rect) override;
 	void hide(bool hide) override;
 	void draw(vk::CommandBuffer) const override;
+	void bounds(const nytl::Rect2f& rect) override;
+	using BasicButton::bounds;
 
 	const auto& style() const { return *style_; }
 
 protected:
 	LabeledButton(Gui&, ContainerWidget*, std::string_view label);
-
 	void clicked(const MouseButtonEvent&) override;
 	void updatePaints() override;
 

@@ -26,6 +26,7 @@ public:
 	/// Hides/unhides this widget.
 	/// A hidden widget should not render anything.
 	/// Hidden widgets will not receive input.
+	/// Implementations should call Widget::hide.
 	virtual void hide(bool hide) = 0;
 
 	/// Returns whether the widget is hidden.
@@ -64,7 +65,8 @@ public:
 	/// Called when the Widget has registered itself for updateDevice.
 	/// Called when no rendering is currently done, so the widget might
 	/// update rendering resources.
-	virtual void updateDevice() {}
+	/// Can return true to signal that a rerecord is needed.
+	virtual bool updateDevice() { return false; }
 
 	/// Returns the effective area outside which this widget and
 	/// all its children must not render.
@@ -95,13 +97,17 @@ public:
 	/// Called from parent. Update internal rendering state.
 	virtual void updateScissor();
 
+	/// Returns whether this widget is descendent of the given widget.
+	/// Returns false for itself.
+	virtual bool isDescendant(const Widget&) const;
+
 	/// Returns the parent of this widget
 	/// A widget may not have a parent.
-	ContainerWidget* parent() const { return parent_; }
+	virtual ContainerWidget* parent() const { return parent_; }
 
 	/// Returns the associated gui object.
 	Gui& gui() const { return gui_; }
-	Context& context() const;
+	virtual Context& context() const;
 
 	/// All values are given in gui space.
 	const Rect2f& bounds() const { return bounds_; }

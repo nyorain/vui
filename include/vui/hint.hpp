@@ -10,23 +10,23 @@ namespace vui {
 
 /// Small popup hint that displays text and processes no input.
 /// Not shown by default.
-class Hint : public MovableWidget {
+class Hint : public Widget {
 public:
-	Hint(Gui&, Vec2f pos, std::string_view text);
-	Hint(Gui&, const Rect2f& bounds, std::string_view text);
-	Hint(Gui&, const Rect2f& bounds, std::string_view text, const HintStyle&);
+	Hint(Gui&, ContainerWidget*, Vec2f pos, std::string_view text);
+	Hint(Gui&, ContainerWidget*, const Rect2f& bounds, std::string_view text);
+	Hint(Gui&, ContainerWidget*, const Rect2f& bounds, std::string_view text,
+		const HintStyle&);
 
-	void label(std::string_view);
-	void reset(const HintStyle&, const Rect2f&, bool force = false);
+	void label(std::string_view, bool resize);
+	void reset(const HintStyle&, const Rect2f&, bool force = false,
+		std::optional<std::string_view> label = std::nullopt);
 	void style(const HintStyle&, bool force = false);
-
-	void size(Vec2f) override;
-	using Widget::size;
+	void bounds(const Rect2f& bounds) override;
+	using Widget::bounds;
 
 	void hide(bool hide) override;
 	void draw(vk::CommandBuffer) const override;
 	bool hidden() const override;
-	int zOrder() const override { return 1000; }
 
 	const auto& style() const { return *style_; }
 
