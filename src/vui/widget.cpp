@@ -70,6 +70,10 @@ void Widget::bindScissor(vk::CommandBuffer cb) const {
 	scissor_.bind(cb);
 }
 
+Vec2f Widget::toLocal(Vec2f pos) const {
+	return pos - position();
+}
+
 // MovableWidget
 MovableWidget::MovableWidget(Gui& gui) : Widget(gui) {
 	transform_ = {context()};

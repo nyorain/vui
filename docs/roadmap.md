@@ -69,3 +69,13 @@
 - [ ] window operations (move, resize) (?)
 - [ ] graph widget, e.g. for frametimes
 - [ ] drag and drop stuff (not sure if needed at all)
+
+
+- [ ] mechanism to allow optimization in widget container?
+
+```
+/// Must be called when a child widget changed its position.
+/// Will start from scratch when determining the widget under
+/// cursor next time.
+virtual void invalidateMouseOver();
+```

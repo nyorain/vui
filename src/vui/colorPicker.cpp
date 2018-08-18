@@ -10,15 +10,6 @@ namespace vui {
 namespace {
 
 template<size_t D, typename T>
-Vec<D, T> clamp(Vec<D, T> v, const Vec<D, T>& min, const Vec<D, T>& max) {
-	for(auto i = 0u; i < D; ++i) {
-		v[i] = std::clamp(v[i], min[i], max[i]);
-	}
-
-	return v;
-}
-
-template<size_t D, typename T>
 Vec<D, T> clamp(const Vec<D, T>& v, Rect<D, T> bounds) {
 	return clamp(v, bounds.position, bounds.position + bounds.size);
 }
@@ -29,23 +20,14 @@ ColorPicker::ColorPicker(Gui& gui, const Rect2f& bounds, const Color& start)
 	: ColorPicker(gui, bounds, start, gui.styles().colorPicker) {
 }
 
-ColorPicker::ColorPicker(Gui& gui, const Rect2f& bounds, const Color& start,
-		const ColorPickerStyle& style) : Widget(gui, bounds), style_(style) {
-
-	auto hsv = hsvNorm(start);
-
+ColorPicker::ColorPicker(Gui& gui) : Widget(gui) {
 	selector_ = {context()};
 	hueMarker_ = {context()};
 	colorMarker_ = {context()};
-	basePaint_ = {context(), colorPaint(hsvNorm(hsv[0], 1.f, 1.f))};
+	basePaint_ = {context(), {}};
 
-	hue_ = {context()};
-	sGrad_ = {context(), {}};
-	vGrad_ = {context(), {}};
-
-	this->size(hsv, bounds.size);
-
-	auto drawMode = DrawMode {false, style.hueWidth};
+	// the hue gradient, using manual point color
+	auto drawMode = DrawMode {false, 1.f}; // dummy stroke, set in reset
 	drawMode.color.fill = false;
 	drawMode.color.stroke = true;
 
@@ -54,16 +36,33 @@ ColorPicker::ColorPicker(Gui& gui, const Rect2f& bounds, const Color& start,
 		drawMode.color.points.push_back(col.rgba());
 	}
 
-	auto hc = hue_.change();
-	hc->drawMode = std::move(drawMode);
+	hue_ = {context(), {}, std::move(drawMode)};
+	sGrad_ = {context(), {}};
+	vGrad_ = {context(), {}};
 }
 
-void ColorPicker::size(Vec2f size) {
-	auto sv = currentSV();
-	this->size({currentHue(), sv.x, sv.y}, size);
+ColorPicker::ColorPicker(Gui& gui, const Rect2f& bounds, const Color& start,
+		const ColorPickerStyle& style) : ColorPicker(gui) {
+
+	auto hsv = hsvNorm(start);
+	reset(style, bounds, false, hsv);
 }
 
-void ColorPicker::size(Vec3f hsv, Vec2f size) {
+void ColorPicker::reset(const ColorPickerStyle& style, const Rect2f& bounds,
+		bool force, std::optional<nytl::Vec3f> ohsv) {
+
+	auto bc = !(bounds == this->bounds());
+	auto sc = force || &style != &this->style();
+
+	if(!bc && !sc) {
+		return;
+	}
+
+	// == analyze ==
+	auto size = bounds.size;
+	auto pos = bounds.position;
+	auto hsv = ohsv ? *ohsv : currentHsv();
+
 	if(size == Vec {autoSize, autoSize}) {
 		size = {230, 200};
 	} else if(size.x == autoSize) {
@@ -72,46 +71,71 @@ void ColorPicker::size(Vec3f hsv, Vec2f size) {
 		size.y = std::min(1.15f * size.x, 120.f);
 	}
 
-	// selector
-	auto sc = selector_.change();
-	sc->size = size;
-	sc->size.x -= style().hueWidth + style().huePadding;
-	sc->drawMode = {true, style().strokeWidth};
+	// == change ==
+	if(ohsv) {
+		basePaint_.paint(colorPaint(hsvNorm(hsv[0], 1.f, 1.f)));
+	}
+
+	auto slc = selector_.change();
+	slc->position = pos;
+	slc->size = size;
+	slc->size.x -= style.hueWidth + style.huePadding;
+	slc->drawMode = {true, style.strokeWidth};
+
+	// selector gradients
+	sGrad_.paint(linearGradient(
+		selector_.position(),
+		selector_.position() + Vec {selector_.size().x, 0.f},
+		::rvg::hsv(0, 0, 255), ::rvg::hsv(0, 0, 255, 0)));
+	vGrad_.paint(linearGradient(
+		selector_.position(),
+		selector_.position() + Vec {0.f, selector_.size().y},
+		::rvg::hsv(0, 255, 0, 0), ::rvg::hsv(0, 255, 0)));
+
+	// selector marker
+	using namespace nytl::vec::cw::operators;
+	auto cmc = colorMarker_.change();
+	cmc->center = pos + Vec {hsv[1], 1.f - hsv[2]} * selector_.size();
+	cmc->radius = {style.colorMarkerRadius, style.colorMarkerRadius};
+	cmc->drawMode = {false, style.colorMarkerThickness};
+	cmc->pointCount = 6u;
 
 	// hue
 	auto hc = hue_.change();
 	hc->points.clear();
+	hc->drawMode.stroke = style.hueWidth;
 
 	auto ystep = size.y / 6.f;
-	auto x = size.x - style().hueWidth / 2;
+	auto x = pos.x + size.x - style.hueWidth / 2;
 	for(auto i = 0u; i < 7; ++i) {
-		hc->points.push_back({x, ystep * i});
+		hc->points.push_back({x, pos.y + ystep * i});
 	}
 
 	// hue marker
 	auto hmc = hueMarker_.change();
-	hmc->position.x = size.x - style().hueWidth;
-	hmc->position.y = hsv[0] * size.y - style().hueMarkerHeight / 2.f;
-	hmc->size = {style().hueWidth, style().hueMarkerHeight};
-	hmc->drawMode = {false, style().hueMarkerThickness};
+	hmc->position.x = pos.x + size.x - style.hueWidth;
+	hmc->position.y = pos.y + hsv[0] * size.y - style.hueMarkerHeight / 2.f;
+	hmc->size = {style.hueWidth, style.hueMarkerHeight};
+	hmc->drawMode = {false, style.hueMarkerThickness};
 
-	// color marker
-	using namespace nytl::vec::cw::operators;
-	auto cmc = colorMarker_.change();
-	cmc->center = Vec {hsv[1], 1.f - hsv[2]} * selector_.size();
-	cmc->radius = {style().colorMarkerRadius, style().colorMarkerRadius};
-	cmc->drawMode = {false, style().colorMarkerThickness};
-	cmc->pointCount = 6u;
+	// == propagate & delegate ==
+	if(bc) {
+		Widget::relayout(bounds);
+	}
 
-	// gradients
-	sGrad_.paint(linearGradient(
-		selector_.position(), Vec {selector_.size().x, 0.f},
-		::rvg::hsv(0, 0, 255), ::rvg::hsv(0, 0, 255, 0)));
-	vGrad_.paint(linearGradient(
-		selector_.position(), Vec {0.f, size.y},
-		::rvg::hsv(0, 255, 0, 0), ::rvg::hsv(0, 255, 0)));
+	if(sc) {
+		dlg_assert(style.marker);
+		style_ = &style;
+		gui().rerecord();
+	}
+}
 
-	Widget::size(size);
+void ColorPicker::relayout(const Rect2f& bounds) {
+	reset(style(), bounds);
+}
+
+void ColorPicker::style(const ColorPickerStyle& style, bool force) {
+	reset(style, bounds(), force);
 }
 
 void ColorPicker::hide(bool hide) {
@@ -122,7 +146,7 @@ void ColorPicker::hide(bool hide) {
 }
 
 bool ColorPicker::hidden() const {
-	return hue_.disabled();
+	return hue_.disabled(DrawType::fill);
 }
 
 Widget* ColorPicker::mouseButton(const MouseButtonEvent& ev) {
@@ -163,7 +187,7 @@ void ColorPicker::pick(const Color& color) {
 }
 
 void ColorPicker::draw(vk::CommandBuffer cb) const {
-	Widget::bindState(cb);
+	Widget::bindScissor(cb);
 
 	for(auto* p : {&basePaint_, &sGrad_, &vGrad_}) {
 		p->bind(cb);
@@ -185,7 +209,7 @@ void ColorPicker::draw(vk::CommandBuffer cb) const {
 }
 
 void ColorPicker::click(Vec2f pos, bool real) {
-	pos = clamp(pos, Vec2f {}, size());
+	pos = nytl::vec::cw::clamp(pos, Vec2f {}, size());
 	auto hue = Rect2f {
 		{selector_.size().x + style().huePadding, 0.f},
 		{style().hueWidth, selector_.size().y}
@@ -223,12 +247,19 @@ Vec2f ColorPicker::currentSV() const {
 	return sv;
 }
 
+Vec3f ColorPicker::currentHsv() const {
+	auto sv = currentSV();
+	return {currentHue(), sv.x, sv.y};
+}
+
 Color ColorPicker::picked() const {
 	auto sv = currentSV();
 	return hsvNorm(currentHue(), sv.x, sv.y);
 }
 
 Rect2f ColorPicker::ownScissor() const {
+	// Except with the marker (which sort of lays on the widget) we
+	// never draw outside of our bounds so this should not be a problem.
 	auto r = Widget::ownScissor();
 	auto y = std::max(style().colorMarkerRadius,
 		style().hueMarkerHeight / 2.f + style().hueMarkerThickness);

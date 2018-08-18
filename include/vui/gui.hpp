@@ -14,6 +14,10 @@
 #include <unordered_set>
 #include <optional>
 
+// TODO
+// Make Gui::update return whether the gui has changed visually in any way and
+// needs to be re-rendered.
+
 namespace vui {
 
 /// Native cursor types.
@@ -99,9 +103,7 @@ public:
 	/// Update should be called every frame (or otherwise as often as
 	/// possible) with the delta frame time in seconds.
 	/// Needed for time-sensitive stuff like animations or cusor blinking.
-	/// Returns whether the gui has changed visually in any way and
-	/// needs to be re-rendered.
-	bool update(double delta);
+	void update(double delta);
 
 	/// Should be called once every frame when the device is not currently
 	/// using the rendering resources.

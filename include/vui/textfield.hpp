@@ -14,9 +14,19 @@ namespace vui {
 
 class Textfield : public Widget {
 public:
+	/// Called everytime when the content is changed.
 	std::function<void(Textfield&)> onChange;
+
+	/// Called everytime when the textfield is unfocused
+	/// without being sumitted (i.e. enter pressed or somewhere
+	/// else clicked)
 	std::function<void(Textfield&)> onCancel;
+
+	/// Called everytime when the textfield is submitted (i.e. enter
+	/// pressed)
 	std::function<void(Textfield&)> onSubmit;
+
+	static constexpr auto blinkTime = 0.5; // in seconds
 
 public:
 	Textfield(Gui&, Vec2f pos, std::string_view start = "");
@@ -24,17 +34,25 @@ public:
 	Textfield(Gui&, const Rect2f& bounds, std::string_view start,
 		const TextfieldStyle&);
 
+	/// Return the current textfield content.
 	std::u32string_view utf32() const;
 	std::string utf8() const;
 
+	/// Returns the current selected string.
+	/// If none is selected, an empty string is returned.
 	std::u32string_view utf32Selected() const;
 	std::string utf8Selected() const;
 
+	/// Sets the content of this textfield.
+	/// Note that this should not be done while it is editable since
+	/// it will reset the current selection and the cursor position to 0.
 	void utf8(std::string_view);
 	void utf32(std::u32string_view);
 
-	void size(Vec2f size) override;
-	using Widget::size;
+	void reset(const TextfieldStyle&, const Rect2f&, bool force = false,
+		std::optional<std::string_view> = std::nullopt);
+	void style(const TextfieldStyle&, bool force = false);
+	void relayout(const Rect2f& size) override;
 
 	void hide(bool hide) override;
 	bool hidden() const override;
@@ -49,35 +67,62 @@ public:
 	void update(double delta) override;
 	void draw(vk::CommandBuffer) const override;
 
-	const auto& style() const { return style_.get(); }
+	const auto& style() const { return *style_; }
 
 protected:
-	void updateCursorPosition();
+	Textfield(Gui&);
+
+	/// Updates the selection render state based on the logical state.
 	void updateSelectionDraw();
-	void cursor(bool show, bool resetBlink = true, bool blink = true);
+
+	/// Updates the cursor render state based on the logical state.
+	void updateCursorPosition();
+
+	void showCursor(bool);
+	void blinkCursor(bool);
+	void resetBlinkTime();
+
+	/// Resets the selection if there is any.
+	/// Otherwise has no effect.
 	void endSelection();
-	unsigned charAt(float x);
+
+	/// Returns the character id the cursor should take when it
+	/// clicks on the given position. Uses a different measurement
+	/// than rvg::Text::charAt in that it does not return the character
+	/// under the given position but the character starting at the
+	/// nearest boundary (since that is how textfields conventionally work).
+	/// x ist the x coordinate in text-local coordinates.
+	unsigned boundaryAt(float x);
+
+	const TextfieldDraw& drawStyle() const;
+	void updatePaints();
+	Cursor cursor() const override;
 
 protected:
-	std::reference_wrapper<const TextfieldStyle> style_;
+	const TextfieldStyle* style_;
 
 	RectShape bg_;
 	RectShape cursor_;
 
+	Paint bgPaint_;
+	Paint bgStroke_;
+	Paint fgPaint_;
+
 	Text text_;
 
-	unsigned cursorPos_ {};
+	unsigned cursorPos_ {}; // the character before which it rests
 	bool focus_ {false};
-	double blinkAccum_ {};
-	bool selecting_ {};
-	bool blink_ {true};
+	bool mouseOver_ {false};
+	double blinkAccum_ {}; // in seconds
+	bool selecting_ {}; // whether mouse is down, ready to select
+	bool blink_ {true}; // whether cursor is blinking
 
 	struct {
 		RectShape bg;
 		Text text;
 
-		unsigned start;
-		unsigned count;
+		unsigned start; // character start
+		unsigned count; // count of characters
 	} selection_ {};
 };
 

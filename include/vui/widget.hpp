@@ -15,10 +15,15 @@ namespace vui {
 /// fixed.
 constexpr auto autoSize = -1.f;
 
-/// Represents an abstract node in the widget hierachy.
+/// A graphical widget with fixed bounds.
 /// Must not be something visible, may be a layouting or container widget.
-/// Every Widget has defined bounds outside which it should not render
-/// and inside which it might receive input events.
+/// There are two types of coordinate spaces relevant for widgets:
+/// - local: does not depend on widgets transform/position. In these
+///   cordinates, the widget always has an axis aligned bounding box with
+///   the top-left corner at (0,0)
+/// - global: coordinates given relative to an ancestors frame of reference.
+///   Isn't necessarily the gui space, there can be widgets that create
+///   their own frame of reference.
 class Widget : public nytl::NonMovable {
 public:
 	virtual ~Widget() = default;
@@ -37,7 +42,8 @@ public:
 	/// Implementations must call Widget::relayout to update them.
 	virtual void size(Vec2f size) { relayout({position(), size}); };
 
-	/// Changes the widgets global position.
+	/// Changes the widgets position. Can be seen as offset of
+	/// the local coordinate space to the global one.
 	/// Implementations must call Widget::relayout to update them.
 	virtual void position(Vec2f pos) { relayout({pos, size()}); }
 
@@ -47,10 +53,9 @@ public:
 	/// Implementations must call Widget::relayout to update the widgets bounds.
 	virtual void relayout(const Rect2f& bounds) = 0;
 
-	/// Returns whether the widget contains the given point in global gui
+	/// Returns whether the widget contains the given point in global
 	/// coordinates. Used e.g. to determine whether the cursor is over
-	/// the widget or not. Must return false for positions outside
-	/// of it bounds.
+	/// the widget or not.
 	virtual bool contains(Vec2f point) const;
 
 	/// Instructs the widget to make sure that no rendering happens
@@ -78,8 +83,12 @@ public:
 	/// zOrder 0 should be the default.
 	virtual int zOrder() const { return 0; }
 
+	/// Transforms a given global position into local coordinates.
+	/// The default implementation just subtracts the own position.
+	virtual Vec2f toLocal(Vec2f pos) const;
+
 	// - input processing -
-	/// All positions are given in gui coordinates.
+	/// All positions are given in local coordinates.
 	/// Must return the Widget that processed the event which might be itself
 	/// or a child widget or none (nullptr).
 	/// If e.g. the widget is transparent at the given position and therefore
@@ -107,10 +116,11 @@ public:
 	Vec2f position() const { return bounds_.position; }
 	Vec2f size() const { return bounds_.size; }
 
-	/// Notifies this widget that the gui transform was changed.
+	/// Notifies this widget that the global transform was changed.
 	/// Only relevant for widgets that use custom transform (they
 	/// must pre-multiply this transform).
-	/// NOTE: usually not required to call as widget user directly.
+	/// NOTE: not to be called from the user directly since not
+	/// all widgets can be freely transformed.
 	virtual void updateTransform(const nytl::Mat4f&) {}
 
 protected:
@@ -128,10 +138,15 @@ protected:
 	/// Can be changed by implementations to make this widget use
 	/// another cursor.
 	virtual Cursor cursor() const;
+
+	/// Returns the logical scissor used by this widget.
+	/// Will be intersected with intersectScissor to result
+	/// in the effective scissor.
 	virtual Rect2f ownScissor() const { return bounds_; }
 
 	void updateScissor();
 	const Rect2f& intersectScissor() const { return intersectScissor_; }
+	Rect2f scissor() const { return scissor_.rect(); }
 
 private:
 	Gui& gui_; // associated gui
@@ -145,7 +160,8 @@ private:
 	mutable rvg::Scissor scissor_; // mutable since only created when needed
 };
 
-/// Widget that offsets its position using a custom transform.
+/// Widget that uses a custom transform and so introduces its own
+/// frame of reference for all children.
 /// Mainly used for widgets that change position often (like windows/hints)
 /// so only the transform has to be recalculated on change.
 /// Deriving classes only have to implement the size method, the position

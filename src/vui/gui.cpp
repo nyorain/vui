@@ -63,8 +63,13 @@ Widget* Gui::mouseButton(const MouseButtonEvent& ev) {
 	}
 
 	if(ev.pressed && w) {
-		// TODO: send release to old buttonGrab_?
-		//   or use multiple button grabs?
+		// NOTE: we simply cancel the old button grab.
+		// we could also support multiple button grabs but things probably
+		// get more complicated then
+		if(buttonGrab_.first) {
+			auto r = MouseButtonEvent {false, buttonGrab_.second, ev.position};
+			buttonGrab_.first->mouseButton(r);
+		}
 		buttonGrab_ = {w, ev.button};
 	}
 

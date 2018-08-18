@@ -13,8 +13,13 @@
 
 namespace vui {
 
+/// Basic hsv (hue, saturation, value) color picker.
+/// Has a hue selector and a larger field with combined saturation/value
+/// gradients.
 class ColorPicker : public Widget {
 public:
+	/// Called everytime the selected color changes.
+	/// Will be called rather often e.g. when sliding the selector.
 	std::function<void(ColorPicker&)> onChange;
 
 public:
@@ -22,8 +27,20 @@ public:
 	ColorPicker(Gui&, const Rect2f& bounds, const Color& start,
 			const ColorPickerStyle& style);
 
-	void size(Vec2f) override;
-	using Widget::size;
+	/// Picks the given color. Will not trigger an onChange callback.
+	void pick(const Color& rgba);
+	void pick(const Vec3f& hsv);
+
+	/// Returns the currently selected color.
+	Color picked() const;
+	Vec3f currentHsv() const;
+	float currentHue() const;
+	Vec2f currentSV() const;
+
+	void reset(const ColorPickerStyle&, const Rect2f&, bool force = false,
+		std::optional<nytl::Vec3f> hsv = std::nullopt);
+	void style(const ColorPickerStyle&, bool force = false);
+	void relayout(const Rect2f&) override;
 
 	void hide(bool hide) override;
 	bool hidden() const override;
@@ -32,21 +49,16 @@ public:
 	Widget* mouseMove(const MouseMoveEvent&) override;
 	void draw(vk::CommandBuffer) const override;
 
-	void pick(const Color&);
-	Color picked() const;
-
-	float currentHue() const;
-	Vec2f currentSV() const;
-
-	const auto& style() const { return style_.get(); }
+	const auto& style() const { return *style_; }
 
 protected:
+	ColorPicker(Gui&);
+
 	Rect2f ownScissor() const override;
 	void click(Vec2f pos, bool real);
-	void size(Vec3f hsv, Vec2f size);
 
 protected:
-	std::reference_wrapper<const ColorPickerStyle> style_;
+	const ColorPickerStyle* style_;
 
 	Shape hue_;
 	RectShape hueMarker_;
@@ -62,8 +74,12 @@ protected:
 	bool slidingHue_ {};
 };
 
+/// A button that shows a ColorPicker when pressed.
+/// Displays the selected color as button "label".
 class ColorButton : public BasicButton {
 public:
+	/// Called every time the selected color changes.
+	/// Will be called rather often e.g. when sliding the selector.
 	std::function<void(ColorButton&)> onChange;
 
 public:

@@ -2,6 +2,7 @@
 #include <vui/gui.hpp>
 #include <rvg/font.hpp>
 #include <nytl/rectOps.hpp>
+#include <dlg/dlg.hpp>
 
 namespace vui {
 
@@ -23,35 +24,6 @@ Hint::Hint(Gui& gui, const Rect2f& bounds, std::string_view text,
 
 	style(xstyle);
 	relayout(bounds);
-}
-
-void Hint::draw(vk::CommandBuffer cb) const {
-	bindScissor(cb);
-	bindTransform(cb);
-
-	if(style().bg) {
-		style().bg->bind(cb);
-		bg_.fill(cb);
-	}
-
-	if(style().bgStroke) {
-		style().bgStroke->bind(cb);
-		bg_.stroke(cb);
-	}
-
-	if(style().text) {
-		style().text->bind(cb);
-		text_.draw(cb);
-	}
-}
-
-void Hint::hide(bool hide) {
-	bg_.disable(hide);
-	text_.disable(hide);
-}
-
-bool Hint::hidden() const {
-	return bg_.disabled();
 }
 
 void Hint::reset(const HintStyle& style, const Rect2f& bounds, bool force) {
@@ -92,9 +64,13 @@ void Hint::reset(const HintStyle& style, const Rect2f& bounds, bool force) {
 	bgc->rounding = style.rounding;
 	bgc->position = pos;
 
-	style_ = &style;
 	if(bc) {
 		Widget::relayout({pos, size});
+	}
+
+	if(sc) {
+		style_ = &style;
+		gui().rerecord();
 	}
 }
 
@@ -104,6 +80,34 @@ void Hint::style(const HintStyle& style, bool force) {
 
 void Hint::size(Vec2f size) {
 	reset(style(), {{}, size}, false);
+}
+
+void Hint::draw(vk::CommandBuffer cb) const {
+	bindScissor(cb);
+	bindTransform(cb);
+
+	if(style().bg) {
+		style().bg->bind(cb);
+		bg_.fill(cb);
+	}
+
+	if(style().bgStroke) {
+		style().bgStroke->bind(cb);
+		bg_.stroke(cb);
+	}
+
+	dlg_assert(style().text->valid());
+	style().text->bind(cb);
+	text_.draw(cb);
+}
+
+void Hint::hide(bool hide) {
+	bg_.disable(hide);
+	text_.disable(hide);
+}
+
+bool Hint::hidden() const {
+	return bg_.disabled(DrawType::fill);
 }
 
 void Hint::label(std::string_view label) {

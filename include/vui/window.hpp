@@ -45,6 +45,8 @@ protected:
 	RectShape bg_;
 };
 
+// Should probably just derive from pane and add stuff like decorations,
+// mvoement, close button etc
 class Window : public LayoutWidget {
 public:
 	Window(Gui& gui, const Rect2f& bounds);

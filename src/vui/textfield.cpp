@@ -3,7 +3,14 @@
 
 #include <rvg/font.hpp>
 #include <nytl/utf.hpp>
+#include <nytl/rectOps.hpp>
 #include <dlg/dlg.hpp>
+
+// TODO:
+// - double click selects all
+// - ctrl a for selecting/unselecting everything
+// - copy/paste integration
+// - allow to extend selections with shift?
 
 namespace vui {
 
@@ -15,50 +22,98 @@ Textfield::Textfield(Gui& gui, const Rect2f& bounds, std::string_view start) :
 	Textfield(gui, bounds, start, gui.styles().textfield) {
 }
 
-Textfield::Textfield(Gui& gui, const Rect2f& bounds, std::string_view start,
-	const TextfieldStyle& style) : Widget(gui, bounds), style_(style) {
-
-	auto font = style.font ? style.font : &gui.font();
-
+Textfield::Textfield(Gui& gui) : Widget(gui) {
 	bg_ = {context()};
 	selection_.bg = {context(), {}, {}, {true, 0.f}};
 	selection_.bg.disable(true);
 
-	text_ = {context(), start, *font, {}};
-	selection_.text = {context(), U"", *font, {}};
+	text_ = {context(), U"", gui.font(), {}};
+	selection_.text = {context(), U"", gui.font(), {}};
 	selection_.text.disable(true);
 
-	cursor_ = {context(), {}, {style.cursorWidth, font->height()}, {true, 0.f}};
+	cursor_ = {context(), {}, {}, {true, 0.f}};
 	cursor_.disable(true);
 
-	size(bounds.size);
+	bgPaint_ = {context(), {}};
+	fgPaint_ = {context(), {}};
+	bgStroke_ = {context(), {}};
 }
 
-void Textfield::size(Vec2f size) {
-	auto tc = text_.change();
-	auto textSize = Vec {text_.width(), gui().font().height()};
-	tc->position = style().padding;
+Textfield::Textfield(Gui& gui, const Rect2f& bounds, std::string_view start,
+		const TextfieldStyle& style) : Textfield(gui) {
+	reset(style, bounds, false, start);
+}
 
-	auto bgc = bg_.change();
-	bgc->size = size;
-	bgc->rounding = style().rounding;
-	bgc->drawMode = {true, style().bgStroke ? 2.f : 0.f};
+void Textfield::reset(const TextfieldStyle& style, const Rect2f& bounds,
+		bool force, std::optional<std::string_view> ostring) {
+	auto sc = force || &style != &this->style();
+	auto bc = !(bounds == this->bounds());
 
-	if(size.x == autoSize) {
-		size.x = tc->font->width(U".:This is the default textfield length:.");
-		bgc->size.x = size.x;
+	if(!bc && !sc) {
+		return;
+	}
+
+	// analyze
+	auto pos = bounds.position;
+	auto size = bounds.size;
+	const auto& string = ostring ? nytl::toUtf32(*ostring) : text_.utf32();
+	auto& font = style.font ? *style.font : gui().font();
+	auto textSize = nytl::Vec2f {font.width(string), font.height()};
+	auto textPos = pos + style.padding;
+
+	if(size.x != autoSize) {
+		size.x = font.width(U".:This is the default textfield length:.");
 	}
 
 	if(size.y != autoSize) {
-		tc->position.y = (size.y - textSize.y) / 2;
+		textPos.y = pos.y + (size.y - textSize.y) / 2;
 	} else {
-		size.y = style().padding.y * 2 + textSize.y;
-		bgc->size.y = size.y;
+		size.y = textSize.y + 2 * style.padding.y;
 	}
+
+	bool stroke = false;
+	for(auto& draw : {style.hovered, style.normal, style.focused}) {
+		if(draw.bgStroke) {
+			stroke = true;
+			break;
+		}
+	}
+
+	// change
+	auto bgc = bg_.change();
+	bgc->position = pos;
+	bgc->drawMode.stroke = stroke ? 2.f : 0.f;
+	bgc->size = size;
+	bgc->position = pos;
+	bgc->rounding = style.rounding;
+
+	auto tc = text_.change();
+	tc->position = textPos;
+	tc->utf32 = string;
 
 	updateSelectionDraw();
 	updateCursorPosition();
-	Widget::size(size);
+
+	// propagate
+	if(bc) {
+		Widget::relayout(bounds);
+	}
+
+	if(sc) {
+		dlg_assert(style.selectedText || style.selected);
+		dlg_assert(style.cursor);
+		style_ = &style;
+		updatePaints();
+		gui().rerecord();
+	}
+}
+
+void Textfield::relayout(const Rect2f& bounds) {
+	reset(style(), bounds);
+}
+
+void Textfield::style(const TextfieldStyle& style, bool force) {
+	reset(style, bounds(), force);
 }
 
 void Textfield::utf8(std::string_view str) {
@@ -73,26 +128,27 @@ void Textfield::utf32(std::u32string_view str) {
 }
 
 void Textfield::hide(bool hide) {
+	// Textfield has many elements to hide/show and so this method
+	// is easy to get wrong. Should work in all possible states
 	bg_.disable(hide);
+	bg_.disable(drawStyle().bgStroke.has_value(), DrawType::stroke);
 	text_.disable(hide);
 
 	if(hide) {
 		cursor_.disable(true);
-	} else if(focus_) {
-		cursor_.disable(false);
-	}
+	} // otherwise on focus it will show itself again due to blinking
 
 	if(hide) {
 		selection_.bg.disable(true);
 		selection_.text.disable(true);
-	} else if(selection_.count) {
+	} else if(selection_.count) { // only unhide selection stuff if active
 		selection_.bg.disable(false);
 		selection_.text.disable(false);
 	}
 }
 
 bool Textfield::hidden() const {
-	return bg_.disabled();
+	return bg_.disabled(DrawType::fill);
 }
 
 Widget* Textfield::mouseButton(const MouseButtonEvent& ev) {
@@ -100,33 +156,32 @@ Widget* Textfield::mouseButton(const MouseButtonEvent& ev) {
 		return nullptr;
 	}
 
+	// we have to call this again since we might still have focus from
+	// gui pov (so we it doesn't get called) but lost it internally, e.g.
+	// due to a submit/cancel
 	focus(true);
+
+	// remember that the selecting mouse button is pressed
+	// used in mouseMove
 	selecting_ = ev.pressed;
 	if(ev.pressed) {
-		if(selection_.count) {
-			endSelection();
-		}
-
+		endSelection();
 		auto ex = ev.position.x - (position().x + text_.position().x);
-		cursorPos_ = charAt(ex);
+		cursorPos_ = boundaryAt(ex);
 
-		cursor(true, true, false);
+		// clicking somewhere immediately shows the cursor there
+		showCursor(true);
+		resetBlinkTime();
 		updateCursorPosition();
-		dlg_assert(cursorPos_ <= text_.utf32().length());
-	} else if(!selection_.count) {
-		cursor(true, true, true);
 	}
 
 	return this;
 }
 
 void Textfield::mouseOver(bool gained) {
-	if(gained) {
-		gui().listener().cursor(Cursor::beam);
-	} else {
-		// TODO
-		gui().listener().cursor(Cursor::pointer);
-	}
+	Widget::mouseOver(gained);
+	mouseOver_ = gained;
+	updatePaints();
 }
 
 Widget* Textfield::mouseMove(const MouseMoveEvent& ev) {
@@ -134,11 +189,13 @@ Widget* Textfield::mouseMove(const MouseMoveEvent& ev) {
 		auto ps = selection_.start;
 		auto pc = selection_.count;
 
+		auto textx = position().x + text_.position().x;
 		auto c1 = cursorPos_;
-		auto c2 = charAt(ev.position.x - (position().x + text_.position().x));
+		auto c2 = boundaryAt(ev.position.x - textx);
 		selection_.start = std::min(c1, c2);
 		selection_.count = std::abs(int(c1) - int(c2));
 
+		// if selection has changed:
 		if(ps != selection_.start || pc != selection_.count) {
 			gui().listener().selection(utf8Selected());
 			updateSelectionDraw();
@@ -149,12 +206,11 @@ Widget* Textfield::mouseMove(const MouseMoveEvent& ev) {
 }
 
 void Textfield::updateSelectionDraw() {
+	// When there is no selection, we have nothing to do
 	if(!selection_.count) {
-		selection_.bg.disable(true);
 		return;
 	}
 
-	cursor(false, true, false);
 	auto end = selection_.start + selection_.count - 1;
 
 	auto b1 = text_.ithBounds(selection_.start);
@@ -180,18 +236,27 @@ void Textfield::updateSelectionDraw() {
 }
 
 void Textfield::focus(bool gained) {
-	if(!gained && selection_.count) {
+	if(gained == focus_) { // see mouseButton(ev)
+		return;
+	}
+
+	if(!gained) {
+		cursorPos_ = 0;
 		endSelection();
+		updateCursorPosition();
 	}
 
 	focus_ = gained;
-	cursor(focus_);
+	showCursor(focus_);
+	blinkCursor(focus_);
+	resetBlinkTime();
+	updatePaints();
 }
 
 Widget* Textfield::textInput(const TextInputEvent& ev) {
 	// When e.g. enter/escape was pressed we still receive events
 	// (since we still have focus from the guis perspective)
-	// although we don't want them anymore.
+	// although we don't want them anymore. So we ignore them.
 	if(!focus_) {
 		return nullptr;
 	}
@@ -204,9 +269,12 @@ Widget* Textfield::textInput(const TextInputEvent& ev) {
 		dlg_assert(cursorPos_ <= tc->utf32.length());
 	}
 
+	endSelection();
+	showCursor(true);
+	resetBlinkTime();
+
 	cursorPos_ += utf32.length();
 	updateCursorPosition();
-	cursor(true, true);
 	if(onChange) {
 		onChange(*this);
 	}
@@ -218,67 +286,67 @@ Widget* Textfield::key(const KeyEvent& ev) {
 	// When e.g. enter/escape was pressed we still receive events
 	// (since we still have focus from the guis perspective)
 	// although we don't want them anymore.
-	if(!focus_) {
+	if(!focus_ || !ev.pressed) {
 		return nullptr;
 	}
 
 	bool changed = false;
 	bool updateCursor = false;
-	if(ev.pressed) {
-		if(ev.key == Key::backspace && cursorPos_ > 0) {
-			auto tc = text_.change();
-			changed = true;
-			if(selection_.count) {
-				tc->utf32.erase(selection_.start, selection_.count);
-				cursorPos_ = selection_.start;
-				endSelection();
-			} else {
-				cursorPos_ -= 1;
-				tc->utf32.erase(cursorPos_, 1);
-			}
-			updateCursor = true;
-		} else if(ev.key == Key::left) {
-			if(selection_.count) {
-				cursorPos_ = selection_.start;
-				endSelection();
-			} else if(cursorPos_ > 0) {
-				cursorPos_ -= 1;
-			}
+	if(ev.key == Key::backspace && cursorPos_ > 0) {
+		auto tc = text_.change();
+		changed = true;
+		if(selection_.count) {
+			tc->utf32.erase(selection_.start, selection_.count);
+			cursorPos_ = selection_.start;
+			endSelection();
+		} else {
+			cursorPos_ -= 1;
+			tc->utf32.erase(cursorPos_, 1);
+		}
+		updateCursor = true;
+	} else if(ev.key == Key::left) {
+		if(selection_.count) {
+			cursorPos_ = selection_.start;
+			endSelection();
+		} else if(cursorPos_ > 0) {
+			cursorPos_ -= 1;
+		}
 
+		updateCursor = true;
+		showCursor(true);
+		resetBlinkTime();
+	} else if(ev.key == Key::right) {
+		if(selection_.count) {
+			cursorPos_ = selection_.start + selection_.count;
+			endSelection();
 			updateCursor = true;
-			cursor(true, true);
-		} else if(ev.key == Key::right) {
-			if(selection_.count) {
-				cursorPos_ = selection_.start + selection_.count;
-				endSelection();
-				updateCursor = true;
-			} else if(cursorPos_ < text_.utf32().length()) {
-				cursorPos_ += 1;
-				updateCursor = true;
-				cursor(true, true);
-			}
-		} else if(ev.key == Key::del) {
-			auto tc = text_.change();
-			if(selection_.count) {
-				tc->utf32.erase(selection_.start, selection_.count);
-				cursorPos_ = selection_.start;
-				updateCursor = true;
-				endSelection();
-				changed = true;
-			} else if(cursorPos_ < text_.utf32().length()) {
-				tc->utf32.erase(cursorPos_, 1);
-				changed = true;
-			}
-		} else if(ev.key == Key::escape) {
-			focus(false);
-			if(onCancel) {
-				onCancel(*this);
-			}
-		} else if(ev.key == Key::enter) {
-			focus(false);
-			if(onSubmit) {
-				onSubmit(*this);
-			}
+		} else if(cursorPos_ < text_.utf32().length()) {
+			cursorPos_ += 1;
+			updateCursor = true;
+			showCursor(true);
+			resetBlinkTime();
+		}
+	} else if(ev.key == Key::del) {
+		auto tc = text_.change();
+		if(selection_.count) {
+			tc->utf32.erase(selection_.start, selection_.count);
+			cursorPos_ = selection_.start;
+			updateCursor = true;
+			endSelection();
+			changed = true;
+		} else if(cursorPos_ < text_.utf32().length()) {
+			tc->utf32.erase(cursorPos_, 1);
+			changed = true;
+		}
+	} else if(ev.key == Key::escape) {
+		focus(false);
+		if(onCancel) {
+			onCancel(*this);
+		}
+	} else if(ev.key == Key::enter) {
+		focus(false);
+		if(onSubmit) {
+			onSubmit(*this);
 		}
 	}
 
@@ -295,23 +363,19 @@ Widget* Textfield::key(const KeyEvent& ev) {
 }
 
 void Textfield::draw(vk::CommandBuffer cb) const {
-	Widget::bindState(cb);
+	Widget::bindScissor(cb);
 
-	dlg_assert(style().bg);
-	style().bg->bind(cb);
+	bgPaint_.bind(cb);
 	bg_.fill(cb);
+	bgStroke_.bind(cb);
+	bg_.stroke(cb);
 
-	if(style().bgStroke) {
-		style().bgStroke->bind(cb);
-		bg_.stroke(cb);
+	if(style().selected) {
+		style().selected->bind(cb);
+		selection_.bg.fill(cb);
 	}
 
-	dlg_assert(style().selected);
-	style().selected->bind(cb);
-	selection_.bg.fill(cb);
-
-	dlg_assert(style().text);
-	style().text->bind(cb);
+	fgPaint_.bind(cb);
 	text_.draw(cb);
 
 	if(style().selectedText) {
@@ -325,15 +389,19 @@ void Textfield::draw(vk::CommandBuffer cb) const {
 }
 
 void Textfield::update(double delta) {
-	if(!focus_ || !blink_ || hidden()) {
+	if(!focus_ || !blink_) {
 		return;
 	}
 
-	constexpr auto blinkTime = 0.5;
 	blinkAccum_ = blinkAccum_ + delta;
-	if(blinkAccum_ > blinkTime) {
-		blinkAccum_ = std::fmod(blinkAccum_, blinkTime);
-		cursor_.disable(!cursor_.disabled());
+
+	// when the textfield is hidden we can't just show the cursor
+	if(!hidden() && blinkAccum_ > blinkTime) {
+		int quo;
+		blinkAccum_ = std::remquo(blinkAccum_, blinkTime, &quo);
+		if(quo % 2) { // only uneven amount of toggles results in real toggle
+			cursor_.disable(!cursor_.disabled());
+		}
 	}
 
 	registerUpdate();
@@ -341,8 +409,7 @@ void Textfield::update(double delta) {
 
 void Textfield::updateCursorPosition() {
 	dlg_assert(cursorPos_ <= text_.utf32().length());
-	auto x = 0.f;
-
+	auto x = text_.position().x;
 	if(cursorPos_ > 0) {
 		auto b = text_.ithBounds(cursorPos_ - 1);
 		x += b.position.x + b.size.x;
@@ -350,35 +417,47 @@ void Textfield::updateCursorPosition() {
 
 	// scrolling
 	auto xbeg = style().padding.x;
-	auto xend = size().x - 2 * style().padding.x;
+	auto xend = size().x - style().padding.x;
 
-	auto tc = text_.change();
-	auto abs = tc->position.x + x;
-	auto clamped = std::clamp(abs, xbeg, xend);
+	// the cursor position clamped into visible range
+	auto clamped = std::clamp(x, xbeg, xend);
 
-	tc->position.x += clamped - abs;
-	abs += clamped - abs;
-
-	auto cc = cursor_.change();
-	cc->position.x = abs;
-	cc->position.y = tc->position.y;
-	cc->drawMode = {true, false};
-}
-
-void Textfield::cursor(bool show, bool resetBlink, bool blink) {
-	blink_ = blink;
-	cursor_.disable(!show);
-
-	if(resetBlink) {
-		blinkAccum_ = 0.f;
+	// if the original cursor position is out of visible range we
+	// have to scroll the text at least so far to get it into range
+	if(clamped != x) {
+		auto tc = text_.change();
+		tc->position.x += clamped - x;
+		x += clamped - x;
 	}
 
-	if(blink_) {
+	auto cc = cursor_.change();
+	cc->size.x = style().cursorWidth;
+	cc->size.y = text_.font()->height();
+	cc->position.x = x;
+	cc->position.y = text_.position().y;
+	cc->drawMode = {true, 0.f};
+
+	// Since we have changed the texts position we must refresh the
+	// bounds of the selection as well
+	updateSelectionDraw();
+}
+
+void Textfield::showCursor(bool s) {
+	cursor_.disable(!s);
+}
+
+void Textfield::blinkCursor(bool b) {
+	blink_ = b;
+	if(b) {
 		registerUpdate();
 	}
 }
 
-unsigned Textfield::charAt(float x) {
+void Textfield::resetBlinkTime() {
+	blinkAccum_ = 0.f;
+}
+
+unsigned Textfield::boundaryAt(float x) {
 	auto ca = text_.charAt(x);
 	if(ca < text_.utf32().length()) {
 		auto bounds = text_.ithBounds(ca);
@@ -408,12 +487,39 @@ std::string Textfield::utf8Selected() const {
 }
 
 void Textfield::endSelection() {
+	if(!selection_.count) {
+		return;
+	}
+
 	selection_.count = selection_.start = {};
 	selection_.text.disable(true);
 	selection_.bg.disable(true);
 
 	if(focus_) {
-		cursor(true, true, false);
+		showCursor(true);
+		blinkCursor(true);
+		resetBlinkTime();
+	}
+}
+
+Cursor Textfield::cursor() const {
+	return Cursor::beam;
+}
+
+const TextfieldDraw& Textfield::drawStyle() const {
+	return focus_ ? style().focused :
+		mouseOver_ ? style().hovered : style().normal;
+}
+
+void Textfield::updatePaints() {
+	auto& draw = drawStyle();
+	bgPaint_.paint(draw.bg);
+	fgPaint_.paint(draw.text);
+
+	bg_.disable(!draw.bgStroke, DrawType::stroke);
+	if(draw.bgStroke) {
+		dlg_assert(bgStroke_.valid());
+		bgStroke_.paint(*draw.bgStroke);
 	}
 }
 

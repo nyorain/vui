@@ -7,10 +7,15 @@
 namespace vui {
 
 /// Owns widgets and manages them, i.e. forwards input and rendering calls.
+/// WidgetContainer can be seen as a common abstraction between
+/// ContainerWidget (a widget that contains other widgets, think of
+/// a window, pane or layout) and the Gui object (which needs the same
+/// functionality to delegate input, drawing, etc.
+/// Although it shares quite a few methods with widget, note how
+/// not all WidgetContainers are widgets themselves and equally are not
+/// Widgets WidgetContainers (think of a Button for example).
 class WidgetContainer {
 public:
-	WidgetContainer(Gui& gui) : gui_(gui) {}
-
 	Widget* mouseMove(const MouseMoveEvent&);
 	Widget* mouseButton(const MouseButtonEvent&);
 	Widget* mouseWheel(const MouseWheelEvent&);
@@ -21,9 +26,10 @@ public:
 
 	/// Just draws all owned widgets.
 	virtual void draw(vk::CommandBuffer) const;
-	virtual void refreshTransform();
+	virtual void updateTransform(const nytl::Mat4f&);
 
-	auto& gui() const { return gui_; }
+	/// Must be called when a child widget has changed its zOrder.
+	virtual void reorder();
 
 	/// Returns the child widget with focus/over which the mouse hovers.
 	/// Returns nullptr if there is no such child.
@@ -31,8 +37,14 @@ public:
 	Widget* childFocus() const { return focus_; }
 
 protected:
+	/// Returns the first widget at this position or nullptr
+	/// if there is none. Will never return this.
+	virtual Widget* widgetAt(Vec2f pos);
+	virtual void refreshMouseOver(Vec2f pos);
+	virtual void refreshFocus();
+
 	/// Adds the given widget to the container.
-	/// Derived classes by adjust its position/size before adding it.
+	/// Derived classes may adjust its position/size before adding it.
 	virtual Widget& add(std::unique_ptr<Widget>);
 
 	/// Creates a widget of the given type with the given arguments and
@@ -42,14 +54,13 @@ protected:
 	template<typename W, typename... Args>
 	W& create(Args&&... args) {
 		static_assert(std::is_base_of_v<Widget, W>, "Can only create widgets");
-		auto widget = std::make_unique<W>(gui(), std::forward<Args>(args)...);
+		auto widget = std::make_unique<W>(std::forward<Args>(args)...);
 		auto& ret = *widget;
 		add(std::move(widget));
 		return ret;
 	}
 
 protected:
-	Gui& gui_;
 	std::vector<std::unique_ptr<Widget>> widgets_;
 	Widget* focus_ {};
 	Widget* mouseOver_ {};
@@ -58,8 +69,6 @@ protected:
 /// Widget that contains other widgets.
 class ContainerWidget : public Widget, public WidgetContainer {
 public:
-	ContainerWidget(Gui&, const Rect2f& bounds);
-
 	void hide(bool hide) override = 0;
 	void size(Vec2f) override = 0;
 	using Widget::size;
@@ -67,7 +76,7 @@ public:
 	void position(Vec2f) override;
 	using Widget::position;
 
-	void refreshTransform() override;
+	void updateTransform(const nytl::Mat4f&) override;
 
 	Widget* mouseMove(const MouseMoveEvent&) override;
 	Widget* mouseButton(const MouseButtonEvent&) override;
@@ -83,6 +92,7 @@ public:
 	using Widget::gui;
 
 protected:
+	ContainerWidget(Gui&);
 	Widget& add(std::unique_ptr<Widget>) override;
 };
 
@@ -99,14 +109,15 @@ public:
 	/// Returns a reference to it.
 	template<typename W, typename... Args>
 	W& create(Args&&... args) {
-		return createSized<W>(nextSize(), std::forward<Args>(args)...);
+		return createSized<W>(gui(), nextSize(), std::forward<Args>(args)...);
 	}
 
 	/// Like create but lets the caller explicitly specify the size passed
 	/// to the widget.
 	template<typename W, typename... Args>
 	W& createSized(Vec2f size, Args&&... args) {
-		return ContainerWidget::create<W>(Rect2f {nextPosition(), size},
+		return ContainerWidget::create<W>(gui(),
+			Rect2f {nextPosition(), size},
 			std::forward<Args>(args)...);
 	}
 

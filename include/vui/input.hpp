@@ -36,7 +36,8 @@ struct MouseButtonEvent {
 };
 
 struct MouseWheelEvent {
-	float distance;
+	Vec2f distance;
+	Vec2f position;
 };
 
 struct KeyEvent {

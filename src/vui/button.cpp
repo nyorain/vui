@@ -12,6 +12,7 @@ namespace vui {
 BasicButton::BasicButton(Gui& gui) : Widget(gui) {
 	bg_ = {context(), {}, {}, {}};
 	bgFill_ = {context(), {}};
+	bgStroke_ = {context(), {}};
 }
 
 void BasicButton::reset(const BasicButtonStyle& style, const Rect2f& bounds,
@@ -44,10 +45,6 @@ void BasicButton::reset(const BasicButtonStyle& style, const Rect2f& bounds,
 	bgc->drawMode.stroke = stroke ? 2.f : 0.f;
 	bgc->rounding = style.rounding;
 
-	if(stroke && !bgStroke_.valid()) {
-		bgStroke_ = {context(), {}};
-	}
-
 	if(bc) {
 		Widget::relayout(bounds);
 	}
@@ -74,20 +71,17 @@ void BasicButton::hint(std::string_view text) {
 	}
 }
 
-void BasicButton::updatePaints() {
-	auto& draw =
-		pressed_ ? style().pressed :
+const ButtonDraw& BasicButton::drawStyle() const {
+	return pressed_ ? style().pressed :
 		hovered_ ? style().hovered : style().normal;
-	updatePaints(draw);
 }
 
-void BasicButton::updatePaints(const ButtonDraw& draw) {
-	*bgFill_.change() = draw.bg;
+void BasicButton::updatePaints() {
+	auto& draw = drawStyle();
+	bgFill_.paint(draw.bg);
+	bg_.disable(!draw.bgStroke, DrawType::stroke);
 	if(draw.bgStroke.has_value()) {
-		dlg_assert(bgStroke_.valid());
-		*bgStroke_.change() = *draw.bgStroke;
-	} else if(bgStroke_.valid()) {
-		bg_.disable(!draw.bgStroke.has_value(), DrawType::stroke);
+		bgStroke_.paint(*draw.bgStroke);
 	}
 }
 
@@ -112,10 +106,11 @@ Widget* BasicButton::mouseButton(const MouseButtonEvent& event) {
 
 void BasicButton::hide(bool hide) {
 	bg_.disable(hide);
+	bg_.disable(drawStyle().bgStroke.has_value(), DrawType::stroke);
 }
 
 bool BasicButton::hidden() const {
-	return bg_.disabled();
+	return bg_.disabled(DrawType::fill);
 }
 
 Widget* BasicButton::mouseMove(const MouseMoveEvent& ev) {
@@ -142,10 +137,8 @@ void BasicButton::draw(vk::CommandBuffer cb) const {
 	Widget::bindScissor(cb);
 	bgFill_.bind(cb);
 	bg_.fill(cb);
-	if(bgStroke_.valid()) {
-		bgStroke_.bind(cb);
-		bg_.stroke(cb);
-	}
+	bgStroke_.bind(cb);
+	bg_.stroke(cb);
 }
 
 Cursor BasicButton::cursor() const {
@@ -236,7 +229,8 @@ void LabeledButton::draw(vk::CommandBuffer cb) const {
 	label_.draw(cb);
 }
 
-void LabeledButton::updatePaints(const ButtonDraw& draw) {
+void LabeledButton::updatePaints() {
+	auto& draw = drawStyle();
 	dlg_assert(draw.fg);
 	*fgPaint_.change() = *draw.fg;
 }

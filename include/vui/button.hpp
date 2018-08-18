@@ -46,7 +46,7 @@ protected:
 	/// Can be overriden to trigger an effect.
 	virtual void clicked(const MouseButtonEvent&) {}
 	virtual void updatePaints();
-	virtual void updatePaints(const ButtonDraw&);
+	const ButtonDraw& drawStyle() const;
 
 	Cursor cursor() const override;
 
@@ -86,7 +86,7 @@ protected:
 	LabeledButton(Gui&, std::string_view label);
 
 	void clicked(const MouseButtonEvent&) override;
-	void updatePaints(const ButtonDraw&) override;
+	void updatePaints() override;
 
 protected:
 	const LabeledButtonStyle* style_;

@@ -2,83 +2,108 @@
 #include <dlg/dlg.hpp>
 
 namespace vui {
+namespace {
+
+template<typename Ev>
+Ev localCopy(const Widget& w, Ev ev) {
+	ev.position = w.toLocal(ev.position);
+	return ev;
+}
+
+bool zWidgetOrder(const std::unique_ptr<Widget>& a,
+		const std::unique_ptr<Widget>& b) {
+	return a->zOrder() < b->zOrder();
+}
+
+} // anon namespace
 
 // WidgetContainer
-Widget* WidgetContainer::mouseMove(const MouseMoveEvent& ev) {
-	// TODO: optimization: check for current mouseOver_ first?
-	// but that could lead to problems when position/zorder of
-	// another window changed that is now over the old one
-
+Widget* WidgetContainer::widgetAt(Vec2f pos) {
+	// since widgets are ordered by z order (lower to higher) we
+	// have to traverse them in reverse
 	for(auto it = widgets_.rbegin(); it != widgets_.rend(); ++it) {
 		auto& w = *it;
-		if(!w->hidden() && w->contains(ev.position)) {
-			if(w.get() != mouseOver_) {
-				if(mouseOver_) {
-					mouseOver_->mouseOver(false);
-				}
-
-				mouseOver_ = w.get();
-				w->mouseOver(true);
-			}
-
-			return w->mouseMove(ev);
+		if(!w->hidden() && w->contains(pos)) {
+			return w.get();
 		}
-	}
-
-	if(mouseOver_) {
-		mouseOver_->mouseOver(false);
-		mouseOver_ = nullptr;
 	}
 
 	return nullptr;
 }
 
+void WidgetContainer::refreshMouseOver(Vec2f pos) {
+	// NOTE: although it would be a neat optimization, we can't
+	// start with checking if it is still over the current mouseOver_
+	// and have to start from scratch every time since position
+	// from higher, overlapping widgets could have changed.
+	auto over = widgetAt(pos);
+	if(over != mouseOver_) {
+		if(mouseOver_) {
+			mouseOver_->mouseOver(false);
+		}
+		mouseOver_ = over;
+		if(over) {
+			over->mouseOver(true);
+		}
+	}
+}
+
+void WidgetContainer::refreshFocus() {
+	if(focus_ && focus_->hidden()) {
+		focus_->focus(false);
+		focus_ = nullptr;
+	}
+}
+
+void WidgetContainer::reorder() {
+	std::sort(widgets_.begin(), widgets_.end(), zWidgetOrder);
+}
+
+// we always call the refresh(mouseOver/focus) since the widgets
+// properties might have changed from the time they got focus/mouseOver
+// to now (e.g. they might have gone hidden)
+Widget* WidgetContainer::mouseMove(const MouseMoveEvent& ev) {
+	refreshMouseOver(ev.position);
+	return mouseOver_ ? mouseOver_->mouseMove(ev) : nullptr;
+}
+
 Widget* WidgetContainer::mouseButton(const MouseButtonEvent& ev) {
-	// TODO: check if hidden
+	refreshMouseOver(ev.position);
 	if(mouseOver_ != focus_) {
 		if(focus_) {
 			focus_->focus(false);
 		}
-
 		focus_ = mouseOver_;
 		if(focus_) {
 			focus_->focus(true);
 		}
 	}
 
-	if(mouseOver_) {
-		return mouseOver_->mouseButton(ev);
-	}
-
-	return nullptr;
+	return mouseOver_? mouseOver_->mouseButton(ev) : nullptr;
 }
+
 Widget* WidgetContainer::mouseWheel(const MouseWheelEvent& ev) {
-	if(mouseOver_) {
-		return mouseOver_->mouseWheel(ev);
-	}
-
-	return nullptr;
+	refreshMouseOver(ev.position);
+	return mouseOver_? mouseOver_->mouseWheel(ev) : nullptr;
 }
+
 Widget* WidgetContainer::key(const KeyEvent& ev) {
-	if(focus_) {
-		return focus_->key(ev);
-	}
-
-	return nullptr;
+	refreshFocus();
+	return focus_ ? focus_->key(ev) : nullptr;
 }
+
 Widget* WidgetContainer::textInput(const TextInputEvent& ev) {
-	if(focus_) {
-		return focus_->textInput(ev);
-	}
-
-	return nullptr;
+	refreshFocus();
+	return focus_ ? focus_->textInput(ev) : nullptr;
 }
+
 void WidgetContainer::focus(bool gained) {
 	if(!gained && focus_) {
 		focus_->focus(false);
 		focus_ = nullptr;
 	}
 }
+
 void WidgetContainer::mouseOver(bool gained) {
 	if(!gained && mouseOver_) {
 		mouseOver_->mouseOver(false);
@@ -96,21 +121,21 @@ void WidgetContainer::draw(vk::CommandBuffer cb) const {
 Widget& WidgetContainer::add(std::unique_ptr<Widget> widget) {
 	dlg_assert(widget);
 	auto ub = std::upper_bound(widgets_.begin(), widgets_.end(),
-		widget, [&](auto& a, auto& b){ return a->zOrder() < b->zOrder(); });
+		widget, zWidgetOrder);
 	widgets_.insert(ub, std::move(widget));
 	return *widgets_.back();
 }
 
-void WidgetContainer::refreshTransform() {
+void WidgetContainer::updateTransform(const nytl::Mat4f& mat) {
 	for(auto& w : widgets_) {
 		dlg_assert(w);
-		w->refreshTransform();
+		w->updateTransform(mat);
 	}
 }
 
 // ContainerWidget
-ContainerWidget::ContainerWidget(Gui& gui, const Rect2f& bounds)
-	: Widget(gui, bounds), WidgetContainer(gui) {
+ContainerWidget::ContainerWidget(Gui& gui)
+	: Widget(gui), WidgetContainer() {
 }
 
 void ContainerWidget::hide(bool hide) {
@@ -124,6 +149,7 @@ void ContainerWidget::position(Vec2f pos) {
 	auto old = position();
 	Widget::position(pos);
 
+	// we just move all widgets by the offset
 	for(auto& w : widgets_) {
 		dlg_assert(w);
 		auto rel = w->position() - old;
