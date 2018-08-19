@@ -11,7 +11,7 @@ namespace colors {
 
 const auto name = rvg::Color {255u, 255u, 255u};
 // const auto line = rvg::Color {15u, 15u, 15u};
-const auto line = rvg::Color {44u, 44u, 44u};
+const auto line = rvg::Color {70u, 70u, 70u};
 // const auto button = rvg::Color {200u, 20u, 20u};
 const auto button = rvg::Color {230u, 29u, 95u};
 // const auto text = rvg::Color {20u, 120u, 20u};
@@ -34,8 +34,8 @@ const auto folderLine = rvg::Color {255u, 255u, 255u, 5u};
 
 } // namespace colors
 
-constexpr auto classifierWidth = 2.f; // width of color classifiers
-constexpr auto lineHeight = 1.f; // bottomLine (separation) height
+constexpr auto classifierWidth = 4.f; // width of color classifiers
+constexpr auto lineHeight = 2.f; // bottomLine (separation) height
 constexpr auto folderOffset = 5.f; // x position offset for folder children
 
 // Container
@@ -82,7 +82,6 @@ std::unique_ptr<Widget> Container::remove(const Widget& w) {
 Widget& Container::add(std::unique_ptr<Widget> w) {
 	height(w->size().y);
 	w->position(nextBounds().position);
-	parent()->relayout();
 	return ContainerWidget::add(std::move(w));
 }
 
@@ -91,6 +90,7 @@ void Container::height(float delta) {
 	s.y += delta;
 	dlg_assert(s.y > 0);
 	Container::size(s); // will refresh all child scissors
+	parent()->relayout();
 }
 
 void Container::hide(bool h) {
@@ -272,18 +272,15 @@ Folder::Folder(Container& parent, const Rect2f& bounds, std::string_view name) :
 }
 
 void Folder::bounds(const Rect2f& b) {
-	dlg_trace("              {}", b);
 	auto pos = b.position;
 	auto size = b.size;
-	// bool sizeChanged = size != this->size();
 
-	auto blc = bottomLine_.change();
-	blc->points = {pos + Vec {0.f, size.y}, pos + size};
+	{
+		auto blc = bottomLine_.change();
+		blc->points = {pos + Vec {0.f, size.y}, pos + size};
+	}
+
 	Container::bounds(b);
-
-	// if(sizeChanged) {
-	// 	container().relayout();
-	// }
 }
 
 void Folder::draw(vk::CommandBuffer cb) const {

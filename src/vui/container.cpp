@@ -31,10 +31,7 @@ Widget* ContainerWidget::widgetAt(Vec2f pos) {
 }
 
 void ContainerWidget::refreshMouseOver(Vec2f pos) {
-	if(!invalidated_ && mouseOver_ && mouseOver_->contains(pos)) {
-		return;
-	}
-
+	// We must start from scratch here since children might have changed
 	auto over = widgetAt(pos);
 	if(over != mouseOver_) {
 		if(mouseOver_) {
@@ -59,21 +56,11 @@ void ContainerWidget::refreshFocus() {
 
 Widget* ContainerWidget::mouseMove(const MouseMoveEvent& ev) {
 	refreshMouseOver(ev.position);
-	if(invalidated_) {
-		refreshFocus();
-		invalidated_ = false;
-	}
-
 	return mouseOver_ ? mouseOver_->mouseMove(ev) : nullptr;
 }
 
 Widget* ContainerWidget::mouseButton(const MouseButtonEvent& ev) {
-	if(invalidated_) {
-		refreshMouseOver(ev.position);
-		refreshFocus();
-		invalidated_ = false;
-	}
-
+	refreshMouseOver(ev.position);
 	if(mouseOver_ != focus_) {
 		if(focus_) {
 			focus_->focus(false);
@@ -88,28 +75,17 @@ Widget* ContainerWidget::mouseButton(const MouseButtonEvent& ev) {
 }
 
 Widget* ContainerWidget::mouseWheel(const MouseWheelEvent& ev) {
-	if(invalidated_) {
-		refreshMouseOver(ev.position);
-		refreshFocus();
-		invalidated_ = false;
-	}
-
+	refreshMouseOver(ev.position);
 	return mouseOver_? mouseOver_->mouseWheel(ev) : nullptr;
 }
 
 Widget* ContainerWidget::key(const KeyEvent& ev) {
-	if(invalidated_) {
-		refreshFocus();
-	}
-
+	refreshFocus();
 	return focus_ ? focus_->key(ev) : nullptr;
 }
 
 Widget* ContainerWidget::textInput(const TextInputEvent& ev) {
-	if(invalidated_) {
-		refreshFocus();
-	}
-
+	refreshFocus();
 	return focus_ ? focus_->textInput(ev) : nullptr;
 }
 
@@ -237,10 +213,6 @@ bool ContainerWidget::hasDescendant(const Widget& w) const {
 	return w.isDescendant(*this);
 }
 
-void ContainerWidget::childChanged() {
-	invalidated_ = true;
-}
-
 void ContainerWidget::updateScissor() {
 	Widget::updateScissor();
 	for(auto& w : widgets_) {
@@ -257,7 +229,6 @@ void ContainerWidget::bounds(const Rect2f& b) {
 	// we just move all widgets by the offset
 	if(b.position != position()) {
 		auto off = b.position - position();
-		dlg_trace("                {}", off);
 		for(auto& w : widgets_) {
 			dlg_assert(w);
 			w->position(w->position() + off);

@@ -12,6 +12,9 @@ namespace vui {
 /// Propagates input and drawing to all its children.
 class ContainerWidget : public Widget {
 public:
+	// TODO: implement hide
+	void hide(bool) override {}
+
 	/// Raises/lowers the first widget above/below the second one.
 	/// Returns false if any of the widgets isn't a direct child,
 	/// both widgets are the same or the operation isn't supported.
@@ -31,23 +34,13 @@ public:
 	/// Returns false for itself.
 	virtual bool hasDescendant(const Widget&) const;
 
-	// TODO: really expose the next two publicly?
-	// one of them is automatically called, the other one might be
-	// but is also in the scope of being called by user (is it?)
-	// somewhat messy interface here.
-	// childChanged only used for optimization, remove that?
-
-	/// To be called when a child changes properties relevant for this
-	/// such as position, size or visibility.
-	/// Will only discard any assumptions when propagating input,
-	/// does not relayout the Container.
-	/// Must not relayout itself or change any children, see relayout.
-	virtual void childChanged();
+	// TODO: expose this here, publicly? probably not good idea
+	// not all container widgets have a layout concept
 
 	/// Abstract way to tell the widget that a child has changed
 	/// (e.g. size) and the whole layout needs to be recomputed.
 	/// In the general case not called automatically.
-	virtual void relayout() { childChanged(); }
+	virtual void relayout() {}
 
 	Widget* mouseMove(const MouseMoveEvent&) override;
 	Widget* mouseButton(const MouseButtonEvent&) override;
@@ -120,9 +113,6 @@ protected:
 	// both always direct children
 	Widget* focus_ {};
 	Widget* mouseOver_ {};
-
-	// whether discard input assumptions
-	bool invalidated_ {};
 };
 
 } // namespace vui

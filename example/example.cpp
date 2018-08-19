@@ -324,6 +324,8 @@ int main() {
 	auto& f1 = panel.create<vui::dat::Folder>("folder 1");
 	auto& b1 = f1.create<vui::dat::Button>("button 1");
 	b1.onClick = [&](){ dlg_info("click 1"); };
+	f1.create<vui::dat::Button>("button 4");
+	f1.create<vui::dat::Button>("button 5");
 
 	auto& f2 = panel.create<vui::dat::Folder>("folder 2");
 	auto& b2 = f2.create<vui::dat::Button>("button 2");
@@ -332,6 +334,10 @@ int main() {
 	auto& nf1 = f2.create<vui::dat::Folder>("nested folder 1");
 	auto& b3 = nf1.create<vui::dat::Button>("button 3");
 	b3.onClick = [&](){ dlg_info("click 3"); };
+
+	nf1.create<vui::dat::Button>("button 6");
+	nf1.create<vui::dat::Button>("button 7");
+	nf1.create<vui::dat::Button>("button 8");
 
 	/*
 	auto& win = gui.create<vui::Window>(nytl::Rect2f {100, 100, 500, 880});

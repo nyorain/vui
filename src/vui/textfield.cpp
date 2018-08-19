@@ -138,8 +138,6 @@ void Textfield::utf32(std::u32string_view str) {
 }
 
 void Textfield::hide(bool hide) {
-	Widget::hide(hide);
-
 	// Textfield has many elements to hide/show and so this method
 	// is easy to get wrong. Should work in all possible states
 	bg_.disable(hide);

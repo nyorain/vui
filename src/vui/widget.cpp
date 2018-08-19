@@ -12,12 +12,6 @@ Widget::~Widget() {
 	gui().removed(*this);
 }
 
-void Widget::hide(bool hide) {
-	if(hide && parent()) {
-		parent()->childChanged();
-	}
-}
-
 bool Widget::contains(Vec2f point) const {
 	dlg_assert(bounds().size.x >= 0 && bounds().size.y >= 0);
 	return nytl::contains(bounds_, point);
@@ -49,9 +43,6 @@ void Widget::bounds(const Rect2f& b) {
 	// When someone else than the parent changes the bounds of a widget,
 	// the caller must know what they are doing and fix everything
 	// manually
-	if(parent()) {
-		parent()->childChanged();
-	}
 }
 
 void Widget::updateScissor() {

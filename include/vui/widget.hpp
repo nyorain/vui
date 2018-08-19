@@ -26,7 +26,6 @@ public:
 	/// Hides/unhides this widget.
 	/// A hidden widget should not render anything.
 	/// Hidden widgets will not receive input.
-	/// Implementations should call Widget::hide.
 	virtual void hide(bool hide) = 0;
 
 	/// Returns whether the widget is hidden.

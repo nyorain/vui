@@ -114,7 +114,6 @@ Widget* BasicButton::mouseButton(const MouseButtonEvent& event) {
 }
 
 void BasicButton::hide(bool hide) {
-	Widget::hide(hide);
 	bg_.disable(hide);
 	bg_.disable(drawStyle().bgStroke.has_value(), DrawType::stroke);
 }

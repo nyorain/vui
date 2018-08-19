@@ -104,7 +104,6 @@ void Hint::draw(vk::CommandBuffer cb) const {
 }
 
 void Hint::hide(bool hide) {
-	Widget::hide(hide);
 	bg_.disable(hide);
 	text_.disable(hide);
 }
