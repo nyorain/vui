@@ -13,8 +13,8 @@ namespace vui {
 class ContainerWidget : public Widget {
 public:
 	/// Raises/lowers the first widget above/below the second one.
-	/// Returns false if any of the widgets isn't a direct child or
-	/// both widgets are the same.
+	/// Returns false if any of the widgets isn't a direct child,
+	/// both widgets are the same or the operation isn't supported.
 	/// Will have no effect if the conditions are already met.
 	virtual bool raiseAbove(const Widget& raise, const Widget& above);
 	virtual bool lowerBelow(const Widget& lower, const Widget& below);
@@ -31,15 +31,23 @@ public:
 	/// Returns false for itself.
 	virtual bool hasDescendant(const Widget&) const;
 
+	// TODO: really expose the next two publicly?
+	// one of them is automatically called, the other one might be
+	// but is also in the scope of being called by user (is it?)
+	// somewhat messy interface here.
+	// childChanged only used for optimization, remove that?
+
 	/// To be called when a child changes properties relevant for this
 	/// such as position, size or visibility.
 	/// Will only discard any assumptions when propagating input,
 	/// does not relayout the Container.
+	/// Must not relayout itself or change any children, see relayout.
 	virtual void childChanged();
 
-	/// Called when a child has changed in a way that the complete
-	/// layout has to be recalculated.
-	virtual void relayout() {}
+	/// Abstract way to tell the widget that a child has changed
+	/// (e.g. size) and the whole layout needs to be recomputed.
+	/// In the general case not called automatically.
+	virtual void relayout() { childChanged(); }
 
 	Widget* mouseMove(const MouseMoveEvent&) override;
 	Widget* mouseButton(const MouseButtonEvent&) override;
@@ -78,6 +86,9 @@ protected:
 	/// also the reason for the nodiscard.
 	/// If you just want to destroy the widget, call destroy which
 	/// manages the keeping alive autoomatically.
+	/// The removed widget will be a orphan without parent and can generally
+	/// not be used in any way until it's readded to the hierachy.
+	/// Only call/expose this method if you know what you are doing.
 	[[nodiscard]] virtual std::unique_ptr<Widget> remove(const Widget&);
 
 	/// If the given widget isn't a child returns nullptr.

@@ -159,7 +159,6 @@ Widget* ColorPicker::mouseButton(const MouseButtonEvent& ev) {
 }
 
 Widget* ColorPicker::mouseMove(const MouseMoveEvent& ev) {
-	dlg_info("move: {}, pos: {}", ev.position, position());
 	click(ev.position, false);
 	return this;
 }

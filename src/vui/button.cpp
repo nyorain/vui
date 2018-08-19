@@ -5,8 +5,22 @@
 #include <rvg/font.hpp>
 #include <dlg/dlg.hpp>
 #include <nytl/rectOps.hpp>
+#include <nytl/utf.hpp>
 
 namespace vui {
+namespace {
+
+bool bgStrokeNeeded(const BasicButtonStyle& style) {
+	for(auto& draw : {style.hovered, style.normal, style.pressed}) {
+		if(draw.bgStroke) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+} // anon namespace
 
 // Basicbutton
 BasicButton::BasicButton(Gui& gui, ContainerWidget* p) : Widget(gui, p) {
@@ -27,16 +41,9 @@ void BasicButton::reset(const BasicButtonStyle& style, const Rect2f& bounds,
 	// analyze
 	auto pos = bounds.position;
 	auto size = bounds.size;
+	auto stroke = bgStrokeNeeded(style);
 	size.x = (size.x == autoSize) ? 130 : size.x;
 	size.y = (size.y == autoSize) ? 30 : size.y;
-
-	bool stroke = false;
-	for(auto& draw : {style.hovered, style.normal, style.pressed}) {
-		if(draw.bgStroke) {
-			stroke = true;
-			break;
-		}
-	}
 
 	// change
 	auto bgc = bg_.change();
@@ -52,6 +59,7 @@ void BasicButton::reset(const BasicButtonStyle& style, const Rect2f& bounds,
 	if(sc) {
 		style_ = &style;
 		updatePaints();
+		gui().rerecord(); // background stroke might have changed
 	}
 }
 
@@ -64,7 +72,8 @@ void BasicButton::bounds(const nytl::Rect2f& bounds) {
 }
 
 void BasicButton::hint(std::string_view text) {
-	if(text.empty()) {
+	if(text.empty() && hint_) {
+		dlg_assert(gui().destroy(*hint_));
 		hint_ = {};
 	} else {
 		hint_ = &gui().create<DelayedHint>(position(), text);
@@ -138,8 +147,11 @@ void BasicButton::draw(vk::CommandBuffer cb) const {
 	Widget::bindScissor(cb);
 	bgFill_.bind(cb);
 	bg_.fill(cb);
-	bgStroke_.bind(cb);
-	bg_.stroke(cb);
+
+	if(bgStrokeNeeded(style())) {
+		bgStroke_.bind(cb);
+		bg_.stroke(cb);
+	}
 }
 
 Cursor BasicButton::cursor() const {
@@ -181,9 +193,9 @@ void LabeledButton::reset(const LabeledButtonStyle& style,
 	// analyze
 	auto pos = bounds.position;
 	auto size = bounds.size;
-	auto str = ostr ? *ostr : label_.utf8();
+	auto str = ostr ? nytl::toUtf32(*ostr) : label_.utf32();
 	auto& font = style.font ? *style.font : gui().font();
-	auto textSize = nytl::Vec2f {font.width(label_.utf8()), font.height()};
+	auto textSize = nytl::Vec2f {font.width(str), font.height()};
 	auto textPos = style.padding; // local
 
 	if(size.x != autoSize) {
@@ -202,7 +214,7 @@ void LabeledButton::reset(const LabeledButtonStyle& style,
 	auto tc = label_.change();
 	tc->position = pos + textPos;
 	tc->font = &font;
-	tc->utf8(str);
+	tc->utf32 = str;
 
 	// propagate
 	style_ = &style;
@@ -236,9 +248,10 @@ void LabeledButton::draw(vk::CommandBuffer cb) const {
 }
 
 void LabeledButton::updatePaints() {
+	BasicButton::updatePaints();
 	auto& draw = drawStyle();
 	dlg_assert(draw.fg);
-	*fgPaint_.change() = *draw.fg;
+	fgPaint_.paint(*draw.fg);
 }
 
 void LabeledButton::label(std::string_view label, bool resize) {

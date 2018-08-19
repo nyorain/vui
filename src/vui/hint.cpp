@@ -2,6 +2,7 @@
 #include <vui/gui.hpp>
 #include <rvg/font.hpp>
 #include <nytl/rectOps.hpp>
+#include <nytl/utf.hpp>
 #include <dlg/dlg.hpp>
 
 namespace vui {
@@ -35,11 +36,11 @@ void Hint::reset(const HintStyle& style, const Rect2f& bounds, bool force,
 	}
 
 	// analyze
-	auto str = ostr ? *ostr : text_.utf8();
+	auto str = ostr ? nytl::toUtf32(*ostr) : text_.utf32();
 	auto pos = bounds.position;
 	auto size = bounds.size;
 	auto& font = style.font ? *style.font : gui().font();
-	auto textSize = nytl::Vec2f {font.width(text_.utf8()), font.height()};
+	auto textSize = nytl::Vec2f {font.width(str), font.height()};
 	auto textPos = style.padding; // local
 
 	if(size.x != autoSize) {
@@ -58,7 +59,7 @@ void Hint::reset(const HintStyle& style, const Rect2f& bounds, bool force,
 	auto tc = text_.change();
 	tc->position = pos + textPos;
 	tc->font = &font;
-	tc->utf8(str);
+	tc->utf32 = str;
 
 	auto bgc = bg_.change();
 	bgc->drawMode = {true, style.bgStroke ? 2.f : 0.f};

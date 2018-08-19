@@ -26,6 +26,8 @@ public:
 	/// pressed)
 	std::function<void(Textfield&)> onSubmit;
 
+	// Add onSelection callback?
+
 public:
 	Textfield(Gui&, ContainerWidget*, Vec2f pos, std::string_view start = "");
 	Textfield(Gui&, ContainerWidget*, const Rect2f& bounds,
@@ -72,6 +74,8 @@ public:
 protected:
 	Textfield(Gui&, ContainerWidget*);
 
+	void pasteResponse(std::string_view) override;
+
 	/// Updates the selection render state based on the logical state.
 	void updateSelectionDraw();
 
@@ -99,7 +103,7 @@ protected:
 	Cursor cursor() const override;
 
 protected:
-	const TextfieldStyle* style_;
+	const TextfieldStyle* style_ {};
 
 	RectShape bg_;
 	RectShape cursor_;
@@ -114,7 +118,7 @@ protected:
 	bool focus_ {false};
 	bool mouseOver_ {false};
 	double blinkAccum_ {}; // in seconds
-	bool selecting_ {}; // whether mouse is down, ready to select
+	std::optional<unsigned> selectionStart_ {}; // where mouse got down
 	bool blink_ {true}; // whether cursor is blinking
 
 	struct {

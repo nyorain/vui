@@ -11,6 +11,9 @@
 
 #include <functional>
 
+// TODO: overwrite contains to exclude the middle gap
+// use hand cursor?
+
 namespace vui {
 
 /// Basic hsv (hue, saturation, value) color picker.
@@ -63,7 +66,7 @@ protected:
 	void click(Vec2f pos, bool real);
 
 protected:
-	const ColorPickerStyle* style_;
+	const ColorPickerStyle* style_ {};
 
 	Shape hue_;
 	RectShape hueMarker_;

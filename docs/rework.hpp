@@ -308,4 +308,39 @@ protected:
 	Vec2f childSize_;
 };
 
+
+
+
+
+
+// dat
+namespace dat {
+
+class Controller : public ContainerWidget {
+public:
+protected:
+};
+
+class Button : public Controller {
+};
+
+class Textfield : public Controller {
+};
+
+} // dat
+
+
+// idea to add to ContainerWidget
+	using Iterator = std::vector<std::unique_ptr<Widget>>::iterator;
+	using ConstIterator = std::vector<std::unique_ptr<Widget>>::const_iterator;
+
+	/// Tries to find the given widget in the list of children.
+	/// Returns widgets_.end() if it could not be found.
+	Iterator find(const Widget&);
+	ConstIterator find(const Widget&) const;
+
+	virtual Widget& addBefore(Widget&, std::unique_ptr<Widget>);
+	virtual Widget& addAfter(Widget&, std::unique_ptr<Widget>);
+
+
 } // namepsace vui

@@ -40,16 +40,25 @@ public:
 	/// Resizes this widget. Note that not all widgets are resizable equally.
 	/// Some might throw when an invalid size is given or just display
 	/// their content incorrectly.
+	/// Can also mess up the parents layout so should only be called
+	/// when parent explicitly allows it or caller can handle
+	/// all unwanted effects.
 	/// Implementations must call Widget::bounds to update the bounds.
 	virtual void size(Vec2f size) { bounds({position(), size}); };
 
 	/// Changes the widgets position in the global space.
+	/// Can mess up the parents layout so should only be called
+	/// when parent explicitly allows it or caller can handle
+	/// all unwanted effects.
 	/// Implementations must call Widget::bounds to update the bounds.
 	virtual void position(Vec2f pos) { bounds({pos, size()}); }
 
 	/// Completely moves and resizes the widget.
 	/// Like the size method, this is able to resize the widget which isn't
 	/// supported by all widget types equally.
+	/// Can also mess up the parents layout so should only be called
+	/// when parent explicitly allows it or caller can handle
+	/// all unwanted effects.
 	/// Implementations must call Widget::bounds to update the widgets bounds.
 	virtual void bounds(const Rect2f& bounds) = 0;
 
@@ -141,10 +150,17 @@ protected:
 	/// stil change it dynamically.
 	virtual Cursor cursor() const;
 
+	/// May be called by gui after this widget submitted a paste request.
+	virtual void pasteResponse(std::string_view) {}
+
+	// - little bit of a hack that allows to call protected stuff on others -
 	/// Sets the parent of this widget.
 	/// Can be null. Allows derived classes to manage (especially add/remove)
 	/// their children.
 	static void parent(Widget& widget, ContainerWidget* newParent);
+
+	/// Allows gui to call pasteResponse on widget.
+	static void callPasteResponse(Widget&, std::string_view);
 
 private:
 	Gui& gui_; // associated gui

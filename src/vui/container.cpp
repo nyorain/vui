@@ -43,6 +43,9 @@ void ContainerWidget::refreshMouseOver(Vec2f pos) {
 		mouseOver_ = over;
 		if(over) {
 			over->mouseOver(true);
+		} else {
+			// we are over no widget anymore. Reset cursor
+			gui().listener().cursor(this->cursor());
 		}
 	}
 }
@@ -142,6 +145,7 @@ Widget& ContainerWidget::add(std::unique_ptr<Widget> widget) {
 	}
 
 	ret.updateScissor();
+	gui().rerecord();
 	return ret;
 }
 
@@ -253,6 +257,7 @@ void ContainerWidget::bounds(const Rect2f& b) {
 	// we just move all widgets by the offset
 	if(b.position != position()) {
 		auto off = b.position - position();
+		dlg_trace("                {}", off);
 		for(auto& w : widgets_) {
 			dlg_assert(w);
 			w->position(w->position() + off);

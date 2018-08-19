@@ -11,7 +11,7 @@
 #include "vui/colorPicker.hpp"
 #include "vui/textfield.hpp"
 // #include "vui/checkbox.hpp"
-// #include "vui/dat.hpp"
+#include "vui/dat.hpp"
 
 #include <rvg/context.hpp>
 #include <rvg/shapes.hpp>
@@ -25,9 +25,14 @@
 
 #include <ny/backend.hpp>
 #include <ny/appContext.hpp>
+#include <ny/asyncRequest.hpp>
 #include <ny/key.hpp>
 #include <ny/mouseButton.hpp>
 #include <ny/event.hpp>
+#include <ny/appContext.hpp>
+#include <ny/windowContext.hpp>
+#include <ny/cursor.hpp>
+#include <ny/dataExchange.hpp>
 
 #include <vpp/instance.hpp>
 #include <vpp/debug.hpp>
@@ -74,6 +79,91 @@ void translate(nytl::Mat4<T>& mat, nytl::Vec3<T> move) {
 	}
 }
 
+class TextDataSource : public ny::DataSource {
+public:
+	std::vector<ny::DataFormat> formats() const override {
+		return {ny::DataFormat::text};
+	}
+
+	std::any data(const ny::DataFormat& format) const override {
+		if(format != ny::DataFormat::text) {
+			return {};
+		}
+
+		return {text};
+	}
+
+	std::string text;
+};
+
+class GuiListener : public vui::GuiListener {
+public:
+	void copy(std::string_view view) override {
+		auto source = std::make_unique<TextDataSource>();
+		source->text = view;
+		ac->clipboard(std::move(source));
+	}
+
+	void cursor(vui::Cursor cursor) override {
+		if(cursor == currentCursor) {
+			return;
+		}
+
+		currentCursor = cursor;
+		auto c = static_cast<ny::CursorType>(cursor);
+		wc->cursor({c});
+	}
+
+	bool pasteRequest(const vui::Widget& widget) override {
+		auto& gui = widget.gui();
+		auto offer = ac->clipboard();
+		if(!offer) { // nothing in clipboard
+			return false;
+		}
+
+		auto req = offer->data(ny::DataFormat::text);
+		if(req->ready()) {
+			std::any any = req.get();
+			auto* pstr = std::any_cast<std::string>(&any);
+			if(!pstr) {
+				return false;
+			}
+
+			gui.paste(widget, *pstr);
+			return true;
+		}
+
+		req->callback([this, &gui](auto& req){ dataHandler(gui, req); });
+		reqs.push_back({std::move(req), &widget});
+		return true;
+	}
+
+	void dataHandler(vui::Gui& gui, ny::AsyncRequest<std::any>& req) {
+		auto it = std::find_if(reqs.begin(), reqs.end(),
+			[&](auto& r) { return r.request.get() == &req; });
+		if(it == reqs.end()) {
+			dlg_error("dataHandler: invalid request");
+			return;
+		}
+
+		std::any any = req.get();
+		auto* pstr = std::any_cast<std::string>(&any);
+		auto str = pstr ? *pstr : "";
+		gui.paste(*it->widget, str);
+		reqs.erase(it);
+	}
+
+	struct Request {
+		ny::DataOffer::DataRequest request;
+		const vui::Widget* widget;
+	};
+
+	std::vector<Request> reqs;
+	ny::AppContext* ac;
+	ny::WindowContext* wc;
+	vui::Cursor currentCursor {};
+};
+
 int main() {
 	// - initialization -
 	auto& backend = ny::Backend::choose();
@@ -97,7 +187,7 @@ int main() {
 	if(useValidation) {
 		auto layers = {
 			layerName,
-			"VK_LAYER_RENDERDOC_Capture",
+			// "VK_LAYER_RENDERDOC_Capture",
 		};
 
 		instanceInfo.enabledLayerCount = layers.size();
@@ -199,12 +289,49 @@ int main() {
 
 	// gui
 	// vui::Gui gui(ctx, lsFont, std::move(styles));
-	vui::Gui gui(ctx, lsFont);
+	GuiListener listener;
+	listener.ac = appContext.get();
+	listener.wc = &window.windowContext();
+
+	vui::Gui gui(ctx, lsFont, listener);
+
 	auto bounds = nytl::Rect2f {100, 100, vui::autoSize, vui::autoSize};
 	auto& cp = gui.create<vui::ColorPicker>(bounds);
 	cp.onChange = [&](auto& cp){
 		svgPaint.paint(rvg::colorPaint(cp.picked()));
 	};
+
+	bounds.position = {400, 100};
+	auto& tf = gui.create<vui::Textfield>(bounds);
+	tf.onSubmit = [&](auto& tf) {
+		dlg_info("submitted: {}", tf.utf8());
+	};
+
+	tf.onCancel = [&](auto& tf) {
+		dlg_info("cancelled: {}", tf.utf8());
+	};
+
+	bounds.position = {100, 500};
+	auto& btn = gui.create<vui::LabeledButton>(bounds, "Waddup my man");
+	dlg_info("{}", btn.size());
+	btn.onClick = [&](auto&) {
+		dlg_info("button pressed");
+	};
+
+	auto pos = nytl::Vec2f {520, 0};
+	auto& panel = gui.create<vui::dat::Panel>(pos, 200.f);
+
+	auto& f1 = panel.create<vui::dat::Folder>("folder 1");
+	auto& b1 = f1.create<vui::dat::Button>("button 1");
+	b1.onClick = [&](){ dlg_info("click 1"); };
+
+	auto& f2 = panel.create<vui::dat::Folder>("folder 2");
+	auto& b2 = f2.create<vui::dat::Button>("button 2");
+	b2.onClick = [&](){ dlg_info("click 2"); };
+
+	auto& nf1 = f2.create<vui::dat::Folder>("nested folder 1");
+	auto& b3 = nf1.create<vui::dat::Button>("button 3");
+	b3.onClick = [&](){ dlg_info("click 3"); };
 
 	/*
 	auto& win = gui.create<vui::Window>(nytl::Rect2f {100, 100, 500, 880});
@@ -279,8 +406,19 @@ int main() {
 	window.onClose = [&](const auto&) { run = false; };
 	window.onKey = [&](const auto& ev) {
 		auto processed = false;
-		processed |= (gui.key({(vui::Key) ev.keycode, ev.pressed}) != nullptr);
-		if(ev.pressed && !ev.utf8.empty() && !ny::specialKey(ev.keycode)) {
+
+		// send key event to gui
+		auto vev = vui::KeyEvent {};
+		vev.key = static_cast<vui::Key>(ev.keycode); // both modeled after linux
+		vev.modifiers = {static_cast<vui::KeyboardModifier>(ev.modifiers.value())};
+		vev.pressed = ev.pressed;
+		processed |= (gui.key(vev) != nullptr);
+
+		// send text event to gui
+		auto textable = ev.pressed && !ev.utf8.empty();
+		textable &= !ny::specialKey(ev.keycode);
+		textable &= !(ev.modifiers & ny::KeyboardModifier::ctrl);
+		if(textable) {
 			processed |= (gui.textInput({ev.utf8.c_str()}) != nullptr);
 		}
 

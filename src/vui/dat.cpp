@@ -3,6 +3,8 @@
 
 #include <rvg/font.hpp>
 #include <dlg/dlg.hpp>
+#include <nytl/rectOps.hpp>
+#include <nytl/scope.hpp>
 
 namespace vui::dat {
 namespace colors {
@@ -17,6 +19,8 @@ const auto text = rvg::Color {47u, 161u, 214u};
 const auto label = rvg::Color {36u, 220u, 198u};
 const auto range = rvg::Color {20u, 20u, 120u};
 const auto checkbox = rvg::Color {120u, 20u, 120u};
+
+const auto fg = rvg::Color {221, 221, 221};
 const auto bg = rvg::Color {40u, 40u, 40u};
 const auto bgHover = rvg::Color {25u, 25u, 25u};
 const auto bgActive = rvg::Color {10u, 10u, 10u};
@@ -30,36 +34,356 @@ const auto folderLine = rvg::Color {255u, 255u, 255u, 5u};
 
 } // namespace colors
 
-constexpr auto classifierWidth = 2.f;
-constexpr auto lineHeight = 1.f;
+constexpr auto classifierWidth = 2.f; // width of color classifiers
+constexpr auto lineHeight = 1.f; // bottomLine (separation) height
+constexpr auto folderOffset = 5.f; // x position offset for folder children
 
-// Controller
-Controller::Controller(Panel& panel, Vec2f pos,
-	std::string_view name) :
-		Widget(panel.gui(), {pos,
-			{panel.position().x + panel.width() - pos.x, panel.rowHeight()}}),
-		panel_(panel) {
+// Container
+void Container::relayout() {
+	if(relayouting_) {
+		return;
+	}
 
-	auto& ctx = panel.context();
-	auto height = panel.rowHeight();
+	// we change children
+	// Those in turn might signal us to relayout
+	relayouting_ = true;
+	auto guad = nytl::ScopeGuard {[&]{ relayouting_ = false; }};
 
-	auto toff = (height - panel.gui().font().height()) / 2;
-	auto tpos = Vec {classifierWidth + std::max(toff, classifierWidth), toff};
-	name_ = {ctx, name, panel.gui().font(), tpos};
+	ContainerWidget::relayout();
 
-	auto start = Vec{classifierWidth / 2.f, 0.f};
-	auto end = Vec{start.x, panel.rowHeight()};
-	classifier_ = {ctx, {start, end}, {false, 3.f}};
+	// currently width of container is never changed so we only
+	// have to correct position
+	auto y = position().y;
+	for(auto& w : widgets_) {
+		if(y != w->position().y) {
+			w->position({w->position().x, y});
+		}
 
-	start = Vec{0.f, size().y};
-	end = Vec{size().x, size().y};
-	bottomLine_ = {ctx, {start, end}, {false, lineHeight}};
+		y += w->size().y;
+	}
 
-	bg_ = {ctx, {}, size(), {true, 0.f}};
+	if(y - position().y != size().y) {
+		ContainerWidget::size({size().x, y - position().y});
+		parent()->relayout();
+	}
 }
 
+std::unique_ptr<Widget> Container::remove(const Widget& w) {
+	auto ptr = ContainerWidget::remove(w);
+	if(!ptr) {
+		return {};
+	}
+
+	height(-w.size().y);
+	relayout();
+	return ptr;
+}
+
+Widget& Container::add(std::unique_ptr<Widget> w) {
+	height(w->size().y);
+	w->position(nextBounds().position);
+	parent()->relayout();
+	return ContainerWidget::add(std::move(w));
+}
+
+void Container::height(float delta) {
+	auto s = size();
+	s.y += delta;
+	dlg_assert(s.y > 0);
+	Container::size(s); // will refresh all child scissors
+}
+
+void Container::hide(bool h) {
+	if(open_ || h) {
+		ContainerWidget::hide(h);
+	}
+}
+
+void Container::open(bool open) {
+	if(open_ == open) {
+		return;
+	}
+
+	open_ = open;
+	auto hidden = this->hidden();
+	auto size = this->size();
+
+	if(open) {
+		size.y = 0.f;
+		for(auto& w : widgets_) {
+			size.y += w->size().y;
+		}
+	} else {
+		// there is always a button or something
+		size.y = panel().rowHeight();
+	}
+
+	for(auto& w : widgets_) {
+		w->hide(hidden || !open);
+	}
+
+	if(size != this->size()) {
+		Container::size(size);
+		parent()->relayout(); // TODO
+	}
+}
+
+Rect2f Container::nextBounds() const {
+	auto pos = position();
+	if(!widgets_.empty()) {
+		pos = widgets_.back()->position();
+		pos.y += widgets_.back()->size().y;
+	}
+
+	return {pos, {size().x, panel().rowHeight()}};
+}
+
+// Panel
+Panel::Panel(Gui& gui, ContainerWidget* p, const Vec2f& pos, float width,
+	float rowHeight, float nameWidth) :
+		Container(gui, p), rowHeight_(rowHeight), nameWidth_(nameWidth) {
+
+	if(rowHeight_ == autoSize) {
+		rowHeight_ = gui.font().height() + 10;
+	}
+
+	if(nameWidth_ == autoSize) {
+		nameWidth_ = gui.font().width("Rather long name");
+	}
+
+	if(width == autoSize) {
+		width = nameWidth_ * 5;
+	}
+
+	Widget::bounds({pos, {width, rowHeight_}});
+
+	// paints
+	using namespace colors;
+	paints_.name = {context(), rvg::colorPaint(name)};
+	paints_.line = {context(), rvg::colorPaint(line)};
+	paints_.folderLine = {context(), rvg::colorPaint(folderLine)};
+	paints_.buttonClass = {context(), rvg::colorPaint(button)};
+	paints_.labelClass = {context(), rvg::colorPaint(label)};
+	paints_.textClass = {context(), rvg::colorPaint(text)};
+	paints_.rangeClass = {context(), rvg::colorPaint(range)};
+	paints_.checkboxClass = {context(), rvg::colorPaint(checkbox)};
+
+	paints_.bg = {context(), rvg::colorPaint(bg)};
+	paints_.bgHover = {context(), rvg::colorPaint(bgHover)};
+	paints_.bgActive = {context(), rvg::colorPaint(bgActive)};
+
+	paints_.bgWidget = {context(), rvg::colorPaint(bgWidget)};
+
+	// styles
+	// TODO: parameterize constants
+	auto cp = [&](auto& col) { return rvg::colorPaint(col); };
+
+	auto yoff = ((rowHeight_ - 4.f) - gui.font().height()) / 2.f;
+	auto xoff = std::max(yoff * 1.5f, 2.f);
+	auto td = TextfieldDraw{cp(bgWidget), cp(fg), {}};
+
+	styles_.textfield = gui.styles().textfield;
+	styles_.textfield.normal = td;
+	styles_.textfield.focused = td;
+	styles_.textfield.hovered = td;
+	styles_.textfield.padding = {xoff, yoff};
+
+	styles_.button = gui.styles().basicButton;
+	styles_.button.normal = {cp(metaButtonBg), {}, cp(fg)};
+	styles_.button.hovered = {cp(metaButtonBgHover), {}, cp(fg)};
+	styles_.button.pressed = {cp(metaButtonBgPressed), {}, cp(fg)};
+	styles_.button.rounding = {};
+
+	styles_.metaButton = gui.styles().labeledButton;
+	styles_.metaButton.basic = &styles_.button;
+
+	// toggle button
+	auto btnBounds = Rect2f {position(), {width, rowHeight_}};
+	auto btn = std::make_unique<LabeledButton>(gui, this, btnBounds,
+		"Toggle Controls", panel().styles().metaButton);
+	toggleButton_ = btn.get();
+	widgets_.push_back(std::move(btn));
+	toggleButton_->onClick = [&](auto&){ this->toggle(); };
+}
+
+void Panel::hide(bool hide) {
+	// toggleButton_ will be hidden by this since it's in widgets_
+	Container::hide(hide);
+}
+
+bool Panel::hidden() const {
+	return toggleButton_->hidden();
+}
+
+Widget& Panel::add(std::unique_ptr<Widget> w) {
+	// since toggleButton_ is also a member of widgets_ we make
+	// sure that we add the new widget before it
+	dlg_assert(!widgets_.empty() && widgets_.back().get() == toggleButton_);
+	auto& ret = Container::add(std::move(w));
+	std::swap(widgets_.back(), widgets_[widgets_.size() - 2]);
+
+	auto y = position().y + size().y - rowHeight_;
+	toggleButton_->position({position().x, y});
+	toggleButton_->updateScissor();
+	parent()->relayout(); // TODO
+
+	return ret;
+}
+
+void Panel::open(bool o) {
+	if(o == open_) {
+		return;
+	}
+
+	auto before = toggleButton_->hidden();
+	Container::open(o);
+	toggleButton_->hide(before); // Container::open changes it
+
+	auto y = position().y + size().y - rowHeight_;
+	toggleButton_->position({position().x, y});
+	toggleButton_->updateScissor();
+}
+
+Rect2f Panel::nextBounds() const {
+	dlg_assert(!widgets_.empty() && widgets_.back().get() == toggleButton_);
+	auto pos = position();
+	if(widgets_.size() > 1) {
+		auto& last = *widgets_[widgets_.size() - 2];
+		pos = last.position();
+		pos.y += last.size().y;
+	}
+
+	return {pos, {size().x, panel().rowHeight()}};
+}
+
+// Folder
+Folder::Folder(Container& parent, const Rect2f& bounds, std::string_view name) :
+		Container(parent.gui(), &parent) {
+
+	bottomLine_ = {context(), {}, {false, lineHeight}};
+	this->bounds(bounds); // TODO: this already triggers relayout at parent...
+
+	auto btnBounds = Rect2f{position(), {size().x, panel().rowHeight()}};
+	auto btn = std::make_unique<LabeledButton>(gui(), this, btnBounds,
+		name, panel().styles().metaButton);
+	toggleButton_ = btn.get();
+	widgets_.push_back(std::move(btn));
+	toggleButton_->onClick = [&](auto&){ this->toggle(); };
+}
+
+void Folder::bounds(const Rect2f& b) {
+	dlg_trace("              {}", b);
+	auto pos = b.position;
+	auto size = b.size;
+	// bool sizeChanged = size != this->size();
+
+	auto blc = bottomLine_.change();
+	blc->points = {pos + Vec {0.f, size.y}, pos + size};
+	Container::bounds(b);
+
+	// if(sizeChanged) {
+	// 	container().relayout();
+	// }
+}
+
+void Folder::draw(vk::CommandBuffer cb) const {
+	Container::ContainerWidget::draw(cb);
+	Container::bindScissor(cb);
+	panel().paints().folderLine.bind(cb);
+	bottomLine_.stroke(cb);
+}
+
+void Folder::open(bool o) {
+	if(o == open_) {
+		return;
+	}
+
+	dlg_assert(!widgets_.empty() && widgets_.front().get() == toggleButton_);
+	auto before = toggleButton_->hidden();
+	Container::open(o);
+	toggleButton_->hide(before); // Container::open changes it
+}
+
+void Folder::hide(bool h) {
+	ContainerWidget::hide(h);
+	bottomLine_.disable(h);
+	if(!h && !open_) { // show toggle button again is closed and not hidden
+		toggleButton_->hide(false);
+	}
+}
+
+bool Folder::hidden() const {
+	return toggleButton_->hidden();
+}
+
+Container& Folder::container() const {
+	dlg_assert(dynamic_cast<Container*>(Widget::parent()));
+	return *static_cast<Container*>(Widget::parent());
+}
+
+Rect2f Folder::nextBounds() const {
+	auto b = Container::nextBounds();
+	b.position.x = position().x + folderOffset;
+	b.size.x -= folderOffset;
+	return b;
+}
+
+// Controller
+Controller::Controller(Container& p, std::string_view name)
+		: ContainerWidget(p.gui(), &p) {
+	name_ = {context(), name, gui().font(), {}};
+	classifier_ = {context(), {}, {false, 3.f}};
+	bg_ = {context(), {}, {}, {true, 0.f}};
+	bottomLine_ = {context(), {}, {false, lineHeight}};
+}
+
+void Controller::reset(const Rect2f& bounds,
+		std::optional<std::string_view> oname) {
+	auto bc = !(bounds == this->bounds());
+	if(!bc && !oname) {
+		return;
+	}
+
+	auto& font = gui().font();
+	auto pos = bounds.position;
+	auto size = bounds.size;
+	dlg_assert(size.x != autoSize && size.y != autoSize);
+
+	// change
+	auto ny = (size.y - font.height()) / 2;
+	auto nameOff = Vec {classifierWidth + std::max(ny, classifierWidth), ny};
+	auto nc = name_.change();
+	nc->font = &font;
+	nc->position = pos + nameOff;
+	if(oname) {
+		nc->utf8(*oname);
+	}
+
+	if(bc) {
+		auto start = Vec {classifierWidth / 2.f, 0.f};
+		auto end = Vec {start.x, size.y};
+		auto cc = classifier_.change();
+		cc->points = {pos + start, pos + end};
+
+		start = Vec {0.f, size.y};
+		end = Vec {size.x, size.y};
+		auto blc = bottomLine_.change();
+		blc->points = {pos + start, pos + end};
+		blc->drawMode = {false, lineHeight};
+
+		auto bc = bg_.change();
+		bc->size = size;
+		bc->position = pos;
+	}
+
+	if(bc) {
+		ContainerWidget::bounds(bounds);
+	}
+}
+
+
 void Controller::draw(vk::CommandBuffer cb) const {
-	Widget::bindState(cb);
+	ContainerWidget::bindScissor(cb);
 
 	bgPaint().bind(cb);
 	bg_.fill(cb);
@@ -67,10 +391,10 @@ void Controller::draw(vk::CommandBuffer cb) const {
 	classPaint().bind(cb);
 	classifier_.stroke(cb);
 
-	panel_.paints().name.bind(cb);
+	panel().paints().name.bind(cb);
 	name_.draw(cb);
 
-	panel_.paints().line.bind(cb);
+	panel().paints().line.bind(cb);
 	bottomLine_.stroke(cb);
 }
 
@@ -79,6 +403,7 @@ const rvg::Paint& Controller::bgPaint() const {
 }
 
 void Controller::hide(bool hide) {
+	ContainerWidget::hide(hide);
 	classifier_.disable(hide);
 	bottomLine_.disable(hide);
 	name_.disable(hide);
@@ -89,24 +414,28 @@ bool Controller::hidden() const {
 	return name_.disabled();
 }
 
-void Controller::size(Vec2f size) {
-	auto toff = (size.y - gui().font().height()) / 2;
-	auto tpos = Vec {toff, classifierWidth + std::max(toff, classifierWidth)};
-	name_.change()->position = tpos;
+void Controller::bounds(const Rect2f& bounds) {
+	reset(bounds);
+}
 
-	auto start = Vec{classifierWidth / 2.f, 0.f};
-	auto end = Vec{start.x, size.y};
-	classifier_.change()->points = {start, end};
+void Controller::name(std::string_view name) {
+	reset(bounds(), name);
+}
 
-	bottomLine_.change()->points = {{0.f, size.y}, size};
-	bg_.change()->size = size;
+Container& Controller::container() const {
+	dlg_assert(dynamic_cast<Container*>(Widget::parent()));
+	return *static_cast<Container*>(Widget::parent());
 }
 
 // Button
-Button::Button(Panel& panel, Vec2f pos, std::string_view name) :
-		Controller(panel, pos, name) {
-
-	bgColor_ = {panel.context(), rvg::colorPaint(colors::bg)};
+// NOTE: we currently reimplement full button functionality instead
+// of using BasicButton. Is it possible to reuse code here in any way?
+// If not deriving from BasicButton, create some class they both
+// use like ButtonBehavior or something? worth it?
+Button::Button(Container& parent, const Rect2f& b, std::string_view name) :
+		Controller(parent, "") {
+	bgColor_ = {context(), rvg::colorPaint(colors::bg)};
+	Controller::reset(b, name);
 }
 
 const rvg::Paint& Button::classPaint() const {
@@ -114,19 +443,17 @@ const rvg::Paint& Button::classPaint() const {
 }
 
 void Button::mouseOver(bool mouseOver) {
+	Controller::mouseOver(mouseOver);
 	hovered_ = mouseOver;
 	if(mouseOver) {
-		gui().listener().cursor(Cursor::hand);
 		bgColor_.paint(rvg::colorPaint(colors::bgHover));
 	} else {
 		bgColor_.paint(rvg::colorPaint(colors::bg));
-
-		// TODO
-		gui().listener().cursor(Cursor::pointer);
 	}
 }
 
 Widget* Button::mouseButton(const MouseButtonEvent& ev) {
+	Controller::mouseButton(ev);
 	if(ev.button == MouseButton::left) {
 		if(ev.pressed) {
 			pressed_ = true;
@@ -144,6 +471,11 @@ Widget* Button::mouseButton(const MouseButtonEvent& ev) {
 	return this;
 }
 
+Cursor Button::cursor() const {
+	return Cursor::hand;
+}
+
+/*
 // Text
 Textfield::Textfield(Panel& panel, Vec2f pos, std::string_view
 		name, std::string_view start) : Controller(panel, pos, name) {
@@ -651,5 +983,6 @@ void Folder::draw(vk::CommandBuffer cb) const {
 	panel().paints().folderLine.bind(cb);
 	bottomLine_.stroke(cb);
 }
+*/
 
 } // namespace vui::dat

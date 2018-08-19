@@ -146,6 +146,11 @@ void Gui::removed(Widget& widget) {
 	if(buttonGrab_.first && inSubtree(widget, *buttonGrab_.first)) {
 		buttonGrab_ = {};
 	}
+
+	auto it = std::find(pasteRequests_.begin(), pasteRequests_.end(), &widget);
+	if(it != pasteRequests_.end()) {
+		pasteRequests_.erase(it);
+	}
 }
 
 void Gui::moveDestroyWidget(std::unique_ptr<Widget> w) {
@@ -159,6 +164,32 @@ void Gui::addUpdate(Widget& widget) {
 
 void Gui::addUpdateDevice(Widget& widget) {
 	updateDevice_.insert(&widget);
+}
+
+void Gui::pasteRequest(Widget& w) {
+	// listener pasteRequest might immediately call paste on us
+	// so we first have to push it into paste requests
+	pasteRequests_.push_back(&w);
+	if(!listener().pasteRequest(w)) {
+		if(pasteRequests_.back() == &w) {
+			pasteRequests_.pop_back();
+		} else {
+			dlg_warn("Invalid GuiListener::pasteRequest behvaior");
+		}
+
+		return;
+	}
+}
+
+bool Gui::paste(const Widget& widget, std::string_view view) {
+	auto it = std::find(pasteRequests_.begin(), pasteRequests_.end(), &widget);
+	if(it == pasteRequests_.end()) {
+		return false;
+	}
+
+	callPasteResponse(**it, view);
+	pasteRequests_.erase(it);
+	return true;
 }
 
 } // namespace vui

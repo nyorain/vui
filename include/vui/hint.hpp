@@ -31,7 +31,7 @@ public:
 	const auto& style() const { return *style_; }
 
 protected:
-	const HintStyle* style_;
+	const HintStyle* style_ {};
 	RectShape bg_;
 	Text text_;
 };

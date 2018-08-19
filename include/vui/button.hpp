@@ -52,7 +52,7 @@ protected:
 	Cursor cursor() const override;
 
 protected:
-	const BasicButtonStyle* style_;
+	const BasicButtonStyle* style_ {};
 	RectShape bg_;
 	Paint bgFill_;
 	Paint bgStroke_;
@@ -76,7 +76,7 @@ public:
 	/// Changes the buttons label.
 	void label(std::string_view, bool resize);
 	void reset(const LabeledButtonStyle&, const Rect2f&, bool force = false,
-		std::optional<std::string_view> label = std::nullopt);
+		std::optional<std::string_view> label = {});
 	void style(const LabeledButtonStyle&, bool reload = false);
 
 	void hide(bool hide) override;
@@ -92,7 +92,7 @@ protected:
 	void updatePaints() override;
 
 protected:
-	const LabeledButtonStyle* style_;
+	const LabeledButtonStyle* style_ {};
 	Text label_;
 	Paint fgPaint_;
 };

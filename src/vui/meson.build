@@ -3,7 +3,7 @@ vui_src = [
 	# 'checkbox.cpp',
 	'colorPicker.cpp',
 	'container.cpp',
-	# 'dat.cpp',
+	'dat.cpp',
 	'gui.cpp',
 	'hint.cpp',
 	'style.cpp',

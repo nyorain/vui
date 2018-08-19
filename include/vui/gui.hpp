@@ -60,7 +60,10 @@ public:
 	/// Called when a widget wants to read a string from the clipboard.
 	/// When the GuiListener can deliver such a string, it should call
 	/// Gui::paste with that string and the given widget.
-	virtual void pasteRequest(Widget&) {}
+	/// The gui will make sure that widget wasn't deleted in the mean time.
+	/// When unable to fulfill, should return false or (if an error
+	/// occurs later) call Gui::paste with an empty string.
+	virtual bool pasteRequest(const Widget&) { return false; }
 
 	/// Called every time the selection changes (e.g. of a textfield).
 	/// On linux, the GuiListener might forward this selection
@@ -131,6 +134,13 @@ public:
 	using ContainerWidget::remove;
 	using ContainerWidget::destroy;
 
+	/// Can be used by a GuiListener implementation to answer a pasteRequest
+	/// as soon as the data is available.
+	/// The widget parameter must be the same from the pasteRequest.
+	/// Returns false when the widget didn't submit a paste request
+	/// or was removed.
+	bool paste(const Widget& widget, std::string_view);
+
 	Context& context() const override { return context_; }
 	const Font& font() const { return font_; }
 	const nytl::Mat4f transform() const { return transform_.matrix(); }
@@ -139,11 +149,12 @@ public:
 	GuiListener& listener() { return listener_.get(); }
 	void rerecord() { rerecord_ = true; }
 
-	/// Registers the widget for the next update/updateDevice calls.
+	/// Internal widget helpers
 	void addUpdate(Widget&);
 	void addUpdateDevice(Widget&);
 	void removed(Widget&);
 	void moveDestroyWidget(std::unique_ptr<Widget>);
+	void pasteRequest(Widget&);
 
 protected:
 	using Widget::gui;
@@ -167,6 +178,7 @@ protected:
 	rvg::Transform transform_ {};
 
 	std::vector<std::unique_ptr<Widget>> destroyWidgets_;
+	std::vector<Widget*> pasteRequests_;
 
 	std::optional<DefaultStyles> defaultStyles_;
 	Styles styles_;

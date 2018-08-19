@@ -37,13 +37,20 @@ void Widget::registerUpdateDevice() {
 
 void Widget::bounds(const Rect2f& b) {
 	dlg_assertm(b.size.x >= 0 && b.size.y >= 0, "{}", b);
-	if(parent()) {
-		parent()->childChanged();
+	if(b == bounds_) {
+		return;
 	}
 
-	if(!(b == bounds_)) {
-		bounds_ = b;
-		updateScissor();
+	bounds_ = b;
+	updateScissor();
+
+	// We could call parent()->relayout() here (at least when size
+	// changes) but that leads to many weird recursion problems.
+	// When someone else than the parent changes the bounds of a widget,
+	// the caller must know what they are doing and fix everything
+	// manually
+	if(parent()) {
+		parent()->childChanged();
 	}
 }
 
@@ -95,6 +102,10 @@ void Widget::parent(Widget& widget, ContainerWidget* newParent) {
 	dlg_assert(!widget.parent_ || !widget.parent_->hasChild(widget));
 	dlg_assert(!newParent || newParent->hasChild(widget));
 	widget.parent_ = newParent;
+}
+
+void Widget::callPasteResponse(Widget& w, std::string_view str) {
+	w.pasteResponse(str);
 }
 
 } // namespace vui
