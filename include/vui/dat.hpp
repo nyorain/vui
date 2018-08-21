@@ -62,6 +62,7 @@ protected:
 
 	virtual Rect2f nextBounds() const; // return bounds of new controller
 	virtual void height(float delta); // called when controller added/removed
+	virtual float closedHeight() const;
 
 protected:
 	bool open_ {true};
@@ -94,6 +95,7 @@ public:
 
 protected:
 	Rect2f nextBounds() const override;
+	float closedHeight() const override { return toggleButton_->size().y; }
 
 protected:
 	float rowHeight_ {};
@@ -194,42 +196,25 @@ protected:
 	bool pressed_ {};
 };
 
-/*
 class Textfield : public Controller {
 public:
-	Textfield(Panel&, Vec2f, std::string_view name,
+	Textfield(Container&, const Rect2f&, std::string_view name,
 		std::string_view start = "");
 
-	void size(Vec2f) override;
-	using Widget::size;
-
-	void position(Vec2f position) override;
-	void intersectScissor(const Rect2f& scissor) override;
-	using Controller::position;
-
 	const rvg::Paint& classPaint() const override;
-	void nameWidth(float) override;
-	void hide(bool hide) override;
-
-	Widget* key(const KeyEvent&) override;
-	Widget* textInput(const TextInputEvent&) override;
-	Widget* mouseButton(const MouseButtonEvent&) override;
-	Widget* mouseMove(const MouseMoveEvent&) override;
-	void mouseOver(bool) override;
-	void focus(bool) override;
-
-	void draw(vk::CommandBuffer) const override;
-	void refreshTransform() override;
+	using Controller::bounds;
 
 	auto& textfield() const { return *textfield_; }
 	auto& textfield() { return *textfield_; }
 
 protected:
-	std::optional<vui::Textfield> textfield_;
-	bool focus_ {};
-	bool mouseOver_ {};
+	void bounds(const Rect2f&) override;
+
+protected:
+	vui::Textfield* textfield_;
 };
 
+/*
 class Label : public Controller {
 public:
 	Label(Panel&, Vec2f, std::string_view name,

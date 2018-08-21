@@ -68,13 +68,18 @@ public:
 	/// Called when the Widget has registered itself for update.
 	/// Gets the delta time since the last frame in seconds.
 	/// Must not touch resources used for rendering.
-	virtual void update(double) {}
+	/// Can return true to signal that it needs to be redrawn
+	/// Default implementation just warns (since it was explicitly added
+	/// to the guis update list without implementation) and returns false.
+	virtual bool update(double);
 
 	/// Called when the Widget has registered itself for updateDevice.
 	/// Called when no rendering is currently done, so the widget might
 	/// update rendering resources.
 	/// Can return true to signal that a rerecord is needed.
-	virtual bool updateDevice() { return false; }
+	/// Default implementation just warns (since it was explicitly added
+	/// to the guis updateDevice list without implementation) and returns false.
+	virtual bool updateDevice();
 
 	/// Returns the effective area outside which this widget and
 	/// all its children must not render.

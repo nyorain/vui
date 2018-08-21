@@ -97,6 +97,7 @@ void ContainerWidget::focus(bool gained) {
 }
 
 void ContainerWidget::mouseOver(bool gained) {
+	Widget::mouseOver(gained); // for cursor
 	if(!gained && mouseOver_) {
 		mouseOver_->mouseOver(false);
 		mouseOver_ = nullptr;
@@ -236,6 +237,13 @@ void ContainerWidget::bounds(const Rect2f& b) {
 	}
 
 	Widget::bounds(b);
+}
+
+void ContainerWidget::hide(bool h) {
+	for(auto& w : widgets_) {
+		dlg_assert(w);
+		w->hide(h);
+	}
 }
 
 } // namespace vui

@@ -123,6 +123,8 @@ void ColorPicker::reset(const ColorPickerStyle& style, const Rect2f& bounds,
 		style_ = &style;
 		gui().rerecord();
 	}
+
+	gui().redraw();
 }
 
 void ColorPicker::bounds(const Rect2f& bounds) {
@@ -138,6 +140,7 @@ void ColorPicker::hide(bool hide) {
 	hueMarker_.disable(hide);
 	selector_.disable(hide);
 	colorMarker_.disable(hide);
+	gui().redraw();
 }
 
 bool ColorPicker::hidden() const {
@@ -180,6 +183,7 @@ void ColorPicker::pick(const Color& color) {
 	auto cmc = colorMarker_.change();
 	cmc->center = sv * selector_.size();
 	cmc->radius = {style().colorMarkerRadius, style().colorMarkerRadius};
+	gui().redraw();
 }
 
 void ColorPicker::draw(vk::CommandBuffer cb) const {
@@ -218,6 +222,7 @@ void ColorPicker::click(Vec2f pos, bool real) {
 		if(onChange) {
 			onChange(*this);
 		}
+		gui().redraw();
 	} else if(slidingHue_ || (real && nytl::contains(hue, pos))) {
 		slidingHue_ = true;
 		pos = clamp(pos, hue);
@@ -228,6 +233,7 @@ void ColorPicker::click(Vec2f pos, bool real) {
 		if(onChange) {
 			onChange(*this);
 		}
+		gui().redraw();
 	}
 }
 

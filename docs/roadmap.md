@@ -5,6 +5,8 @@
   - [x] enter/escape
   - [x] selection
   - [ ] some basic shortcuts like ctrl-a (might need ny fixes)
+- [ ] add hint to widget? only one pointer, will only be created when set
+	- [ ] otherwise: add it to all major classes, Textfield, Controller etc
 - [ ] vui: row
 - [ ] maybe not a good idea to make widgets use a transform by default.
       cleaner implementation without? And better performance

@@ -155,6 +155,8 @@ void Textfield::hide(bool hide) {
 		selection_.bg.disable(false);
 		selection_.text.disable(false);
 	}
+
+	gui().redraw();
 }
 
 bool Textfield::hidden() const {
@@ -468,23 +470,26 @@ void Textfield::draw(vk::CommandBuffer cb) const {
 	cursor_.fill(cb);
 }
 
-void Textfield::update(double delta) {
+bool Textfield::update(double delta) {
 	if(!focus_ || !blink_) {
-		return;
+		return false;
 	}
 
 	blinkAccum_ = blinkAccum_ + delta;
 
 	// when the textfield is hidden we can't just show the cursor
+	auto ret = false;
 	if(!hidden() && blinkAccum_ > Gui::blinkTime) {
 		int quo;
 		blinkAccum_ = std::remquo(blinkAccum_, Gui::blinkTime, &quo);
 		if(quo % 2) { // only uneven amount of toggles results in real toggle
 			cursor_.disable(!cursor_.disabled());
+			ret = true;
 		}
 	}
 
 	registerUpdate();
+	return ret;
 }
 
 void Textfield::updateCursorPosition() {
@@ -520,10 +525,12 @@ void Textfield::updateCursorPosition() {
 	// Since we have changed the texts position we must refresh the
 	// bounds of the selection as well
 	updateSelectionDraw();
+	gui().redraw();
 }
 
 void Textfield::showCursor(bool s) {
 	cursor_.disable(!s);
+	gui().redraw();
 }
 
 void Textfield::blinkCursor(bool b) {
@@ -574,6 +581,7 @@ void Textfield::endSelection() {
 	selection_.count = selection_.start = {};
 	selection_.text.disable(true);
 	selection_.bg.disable(true);
+	gui().redraw();
 
 	if(focus_) {
 		showCursor(true);
@@ -601,6 +609,8 @@ void Textfield::updatePaints() {
 		dlg_assert(bgStroke_.valid());
 		bgStroke_.paint(*draw.bgStroke);
 	}
+
+	gui().redraw();
 }
 
 void Textfield::pasteResponse(std::string_view str) {

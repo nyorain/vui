@@ -44,7 +44,7 @@ public:
 	/// Whether the mouse is currently hovering the area for which a hint
 	/// exists. The widget still has to update the Hints position.
 	void hovered(bool);
-	void update(double delta);
+	bool update(double delta);
 
 protected:
 	bool hovered_ {};

@@ -38,6 +38,7 @@ Gui::Gui(Context& ctx, const Font& font, Styles&& s, GuiListener& listener)
 
 void Gui::transform(const nytl::Mat4f& mat) {
 	transform_.matrix(mat);
+	redraw();
 }
 
 Widget* Gui::mouseMove(const MouseMoveEvent& ev) {
@@ -99,12 +100,19 @@ void Gui::mouseOver(bool gained) {
 	}
 }
 
-void Gui::update(double delta) {
+// TODO: iterate over widgets to update (updateDevice) until there
+// are none left? currently widgets added during the update phase
+// will only be updated next frame
+bool Gui::update(double delta) {
+	bool redraw = redraw_ | rerecord_;
 	auto moved = std::move(update_);
 	for(auto& widget : moved) {
 		dlg_assert(widget);
-		widget->update(delta);
+		redraw |= widget->update(delta);
 	}
+
+	redraw_ = false;
+	return redraw;
 }
 
 bool Gui::updateDevice() {
@@ -118,7 +126,6 @@ bool Gui::updateDevice() {
 
 	if(!destroyWidgets_.empty()) {
 		destroyWidgets_.clear();
-		rerecord = true;
 	}
 
 	rerecord_ = false;
@@ -151,6 +158,8 @@ void Gui::removed(Widget& widget) {
 	if(it != pasteRequests_.end()) {
 		pasteRequests_.erase(it);
 	}
+
+	rerecord();
 }
 
 void Gui::moveDestroyWidget(std::unique_ptr<Widget> w) {

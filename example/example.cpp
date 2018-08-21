@@ -46,6 +46,7 @@
 
 #include <chrono>
 #include <array>
+#include <thread>
 
 // static const std::string baseResPath = "../";
 static const std::string baseResPath = "../subprojects/vui/";
@@ -57,11 +58,11 @@ using namespace nytl::vec::cw::operators;
 // settings
 constexpr auto appName = "rvg-example";
 constexpr auto engineName = "vpp,rvg";
-constexpr auto useValidation = true;
+constexpr auto useValidation = false;
 constexpr auto startMsaa = vk::SampleCountBits::e1;
 constexpr auto layerName = "VK_LAYER_LUNARG_standard_validation";
 constexpr auto printFrames = true;
-constexpr auto vsync = true;
+constexpr auto vsync = false;
 constexpr auto clearColor = std::array<float, 4>{{0.f, 0.f, 0.f, 1.f}};
 
 // TODO: move to nytl
@@ -301,7 +302,7 @@ int main() {
 		svgPaint.paint(rvg::colorPaint(cp.picked()));
 	};
 
-	bounds.position = {400, 100};
+	bounds.position = {100, 600};
 	auto& tf = gui.create<vui::Textfield>(bounds);
 	tf.onSubmit = [&](auto& tf) {
 		dlg_info("submitted: {}", tf.utf8());
@@ -318,8 +319,8 @@ int main() {
 		dlg_info("button pressed");
 	};
 
-	auto pos = nytl::Vec2f {520, 0};
-	auto& panel = gui.create<vui::dat::Panel>(pos, 200.f);
+	auto pos = nytl::Vec2f {500, 0};
+	auto& panel = gui.create<vui::dat::Panel>(pos, 300.f);
 
 	auto& f1 = panel.create<vui::dat::Folder>("folder 1");
 	auto& b1 = f1.create<vui::dat::Button>("button 1");
@@ -335,8 +336,18 @@ int main() {
 	auto& b3 = nf1.create<vui::dat::Button>("button 3");
 	b3.onClick = [&](){ dlg_info("click 3"); };
 
-	nf1.create<vui::dat::Button>("button 6");
-	nf1.create<vui::dat::Button>("button 7");
+	auto& b6 = nf1.create<vui::dat::Button>("button 6");
+
+	std::unique_ptr<vui::Widget> removed6 {};
+	auto& b7 = nf1.create<vui::dat::Button>("button 7");
+	b7.onClick = [&]{
+		if(removed6) {
+			nf1.add(std::move(removed6));
+		} else {
+			removed6 = nf1.remove(b6);
+		}
+	};
+
 	nf1.create<vui::dat::Button>("button 8");
 
 	/*
@@ -408,6 +419,8 @@ int main() {
 	renderer.invalidate();
 
 	// connect window & renderer
+	// TODO: statements above might have to set redraw
+	bool redraw = true;
 	auto run = true;
 	window.onClose = [&](const auto&) { run = false; };
 	window.onKey = [&](const auto& ev) {
@@ -497,6 +510,10 @@ int main() {
 		gui.mouseMove({static_cast<nytl::Vec2f>(ev.position)});
 	};
 
+	window.onDraw = [&](const auto& ev) {
+		redraw = true;
+	};
+
 	// - main loop -
 	using Clock = std::chrono::high_resolution_clock;
 	using Secf = std::chrono::duration<float, std::ratio<1, 1>>;
@@ -504,6 +521,7 @@ int main() {
 	auto lastFrame = Clock::now();
 	auto fpsCounter = 0u;
 	auto secCounter = 0.f;
+	auto i = 0u;
 
 	while(run) {
 		auto now = Clock::now();
@@ -511,13 +529,23 @@ int main() {
 		auto deltaCount = std::chrono::duration_cast<Secf>(diff).count();
 		lastFrame = now;
 
-		if(!appContext->pollEvents()) {
-			dlg_info("pollEvents returned false");
-			return 0;
+		if(!redraw) {
+			// TODO: ideally we would use waitEvents and some threaded
+			// wake-up mechanism
+			constexpr auto idleRate = 144.f; // in hz
+			std::this_thread::sleep_for(Secf(1 / idleRate));
+			if(!appContext->pollEvents()) {
+				dlg_info("pollEvents returned false");
+				return 0;
+			}
+
+			redraw |= gui.update(deltaCount);
+			if(!redraw) {
+				continue;
+			}
 		}
 
-		gui.update(deltaCount);
-
+		dlg_trace("rendering frame {}", ++i);
 		if(gui.updateDevice()) {
 			dlg_info("gui rerecord");
 			renderer.invalidate();
@@ -553,5 +581,7 @@ int main() {
 				fpsCounter = 0;
 			}
 		}
+
+		redraw = false;
 	}
 }

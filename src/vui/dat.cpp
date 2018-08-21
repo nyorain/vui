@@ -11,7 +11,7 @@ namespace colors {
 
 const auto name = rvg::Color {255u, 255u, 255u};
 // const auto line = rvg::Color {15u, 15u, 15u};
-const auto line = rvg::Color {70u, 70u, 70u};
+const auto line = rvg::Color {44u, 44u, 44u}; // #2c2c2c, dat.gui
 // const auto button = rvg::Color {200u, 20u, 20u};
 const auto button = rvg::Color {230u, 29u, 95u};
 // const auto text = rvg::Color {20u, 120u, 20u};
@@ -21,12 +21,15 @@ const auto range = rvg::Color {20u, 20u, 120u};
 const auto checkbox = rvg::Color {120u, 20u, 120u};
 
 const auto fg = rvg::Color {221, 221, 221};
-const auto bg = rvg::Color {40u, 40u, 40u};
-const auto bgHover = rvg::Color {25u, 25u, 25u};
+const auto bg = rvg::Color {26u, 26u, 26u}; // @1a1a1a, dat.gui
+const auto bgHover = rvg::Color {10u, 10u, 10u};
 const auto bgActive = rvg::Color {10u, 10u, 10u};
-const auto bgWidget = rvg::Color {48u, 48u, 48u};
 
-const auto metaButtonBg = rvg::Color {5u, 5u, 5u};
+const auto bgWidget = rvg::Color {48u, 48u, 48u}; // #303030, dat.gui
+const auto bgWidgetHover = rvg::Color {60u, 60u, 60u}; // #3c3c3c, dat.gui
+const auto bgWidgetFocus = rvg::Color {73u, 73u, 73u}; // #494949, dat.gui
+
+const auto metaButtonBg = rvg::Color {0u, 0u, 0u}; // #000 dat.gui
 const auto metaButtonBgHover = bgHover;
 const auto metaButtonBgPressed = metaButtonBgHover;
 // const auto folderLine = rvg::Color {255u, 255u, 255u, 8u};
@@ -34,9 +37,14 @@ const auto folderLine = rvg::Color {255u, 255u, 255u, 5u};
 
 } // namespace colors
 
-constexpr auto classifierWidth = 4.f; // width of color classifiers
-constexpr auto lineHeight = 2.f; // bottomLine (separation) height
-constexpr auto folderOffset = 5.f; // x position offset for folder children
+// TODO: assert expected sizes (e.g. in constructors/bounds)
+// assert(bounds.size.y == panel().rowHeight());
+// don't expose bounds publicly?
+
+constexpr auto classifierWidth = 3.f; // width of color classifiers
+constexpr auto lineHeight = 1.f; // bottomLine (separation) height
+constexpr auto folderOffset = 4.f; // x position offset for folder children
+constexpr auto namePadding = 10.f;
 
 // Container
 void Container::relayout() {
@@ -114,8 +122,8 @@ void Container::open(bool open) {
 			size.y += w->size().y;
 		}
 	} else {
-		// there is always a button or something
-		size.y = panel().rowHeight();
+		// not too well designed but works
+		size.y = closedHeight();
 	}
 
 	for(auto& w : widgets_) {
@@ -124,7 +132,7 @@ void Container::open(bool open) {
 
 	if(size != this->size()) {
 		Container::size(size);
-		parent()->relayout(); // TODO
+		parent()->relayout();
 	}
 }
 
@@ -138,13 +146,17 @@ Rect2f Container::nextBounds() const {
 	return {pos, {size().x, panel().rowHeight()}};
 }
 
+float Container::closedHeight() const {
+	return panel().rowHeight();
+}
+
 // Panel
 Panel::Panel(Gui& gui, ContainerWidget* p, const Vec2f& pos, float width,
-	float rowHeight, float nameWidth) :
+	float nameWidth, float rowHeight) :
 		Container(gui, p), rowHeight_(rowHeight), nameWidth_(nameWidth) {
 
 	if(rowHeight_ == autoSize) {
-		rowHeight_ = gui.font().height() + 10;
+		rowHeight_ = 5 + 1.5 * gui.font().height();
 	}
 
 	if(nameWidth_ == autoSize) {
@@ -152,7 +164,7 @@ Panel::Panel(Gui& gui, ContainerWidget* p, const Vec2f& pos, float width,
 	}
 
 	if(width == autoSize) {
-		width = nameWidth_ * 5;
+		width = nameWidth_ * 3;
 	}
 
 	Widget::bounds({pos, {width, rowHeight_}});
@@ -180,12 +192,11 @@ Panel::Panel(Gui& gui, ContainerWidget* p, const Vec2f& pos, float width,
 
 	auto yoff = ((rowHeight_ - 4.f) - gui.font().height()) / 2.f;
 	auto xoff = std::max(yoff * 1.5f, 2.f);
-	auto td = TextfieldDraw{cp(bgWidget), cp(fg), {}};
 
 	styles_.textfield = gui.styles().textfield;
-	styles_.textfield.normal = td;
-	styles_.textfield.focused = td;
-	styles_.textfield.hovered = td;
+	styles_.textfield.normal = {cp(bgWidget), cp(fg), {}};
+	styles_.textfield.hovered = {cp(bgWidgetHover), cp(fg), {}};
+	styles_.textfield.focused = {cp(bgWidgetFocus), cp(fg), {}};
 	styles_.textfield.padding = {xoff, yoff};
 
 	styles_.button = gui.styles().basicButton;
@@ -198,7 +209,9 @@ Panel::Panel(Gui& gui, ContainerWidget* p, const Vec2f& pos, float width,
 	styles_.metaButton.basic = &styles_.button;
 
 	// toggle button
-	auto btnBounds = Rect2f {position(), {width, rowHeight_}};
+	// auto buttonHeight = 10 + gui.font().height();
+	auto buttonHeight = rowHeight_;
+	auto btnBounds = Rect2f {position(), {width, buttonHeight}};
 	auto btn = std::make_unique<LabeledButton>(gui, this, btnBounds,
 		"Toggle Controls", panel().styles().metaButton);
 	toggleButton_ = btn.get();
@@ -239,7 +252,7 @@ void Panel::open(bool o) {
 	Container::open(o);
 	toggleButton_->hide(before); // Container::open changes it
 
-	auto y = position().y + size().y - rowHeight_;
+	auto y = position().y + size().y - toggleButton_->size().y;
 	toggleButton_->position({position().x, y});
 	toggleButton_->updateScissor();
 }
@@ -261,26 +274,28 @@ Folder::Folder(Container& parent, const Rect2f& bounds, std::string_view name) :
 		Container(parent.gui(), &parent) {
 
 	bottomLine_ = {context(), {}, {false, lineHeight}};
-	this->bounds(bounds); // TODO: this already triggers relayout at parent...
 
-	auto btnBounds = Rect2f{position(), {size().x, panel().rowHeight()}};
+	auto btnBounds = Rect2f{position(), {bounds.size.x, panel().rowHeight()}};
 	auto btn = std::make_unique<LabeledButton>(gui(), this, btnBounds,
 		name, panel().styles().metaButton);
 	toggleButton_ = btn.get();
 	widgets_.push_back(std::move(btn));
 	toggleButton_->onClick = [&](auto&){ this->toggle(); };
+
+	this->bounds(bounds);
 }
 
 void Folder::bounds(const Rect2f& b) {
-	auto pos = b.position;
-	auto size = b.size;
-
 	{
 		auto blc = bottomLine_.change();
-		blc->points = {pos + Vec {0.f, size.y}, pos + size};
+		blc->points = {
+			b.position + Vec {0.f, panel().rowHeight()},
+			b.position + Vec {b.size.x, panel().rowHeight()}
+		};
 	}
 
 	Container::bounds(b);
+	gui().redraw();
 }
 
 void Folder::draw(vk::CommandBuffer cb) const {
@@ -304,9 +319,10 @@ void Folder::open(bool o) {
 void Folder::hide(bool h) {
 	ContainerWidget::hide(h);
 	bottomLine_.disable(h);
-	if(!h && !open_) { // show toggle button again is closed and not hidden
-		toggleButton_->hide(false);
-	}
+
+	// to show it even when we are closed
+	toggleButton_->hide(h);
+	gui().redraw();
 }
 
 bool Folder::hidden() const {
@@ -376,6 +392,8 @@ void Controller::reset(const Rect2f& bounds,
 	if(bc) {
 		ContainerWidget::bounds(bounds);
 	}
+
+	gui().redraw();
 }
 
 
@@ -393,6 +411,8 @@ void Controller::draw(vk::CommandBuffer cb) const {
 
 	panel().paints().line.bind(cb);
 	bottomLine_.stroke(cb);
+
+	ContainerWidget::draw(cb);
 }
 
 const rvg::Paint& Controller::bgPaint() const {
@@ -405,6 +425,7 @@ void Controller::hide(bool hide) {
 	bottomLine_.disable(hide);
 	name_.disable(hide);
 	bg_.disable(hide);
+	gui().redraw();
 }
 
 bool Controller::hidden() const {
@@ -444,8 +465,10 @@ void Button::mouseOver(bool mouseOver) {
 	hovered_ = mouseOver;
 	if(mouseOver) {
 		bgColor_.paint(rvg::colorPaint(colors::bgHover));
+		gui().redraw();
 	} else {
 		bgColor_.paint(rvg::colorPaint(colors::bg));
+		gui().redraw();
 	}
 }
 
@@ -455,6 +478,7 @@ Widget* Button::mouseButton(const MouseButtonEvent& ev) {
 		if(ev.pressed) {
 			pressed_ = true;
 			bgColor_.paint(rvg::colorPaint(colors::bgActive));
+			gui().redraw();
 		} else if(pressed_) {
 			auto col = hovered_ ? colors::bgHover : colors::bgActive;
 			bgColor_.paint(rvg::colorPaint(col));
@@ -462,6 +486,7 @@ Widget* Button::mouseButton(const MouseButtonEvent& ev) {
 			if(hovered_ && onClick) {
 				onClick();
 			}
+			gui().redraw();
 		}
 	}
 
@@ -470,6 +495,28 @@ Widget* Button::mouseButton(const MouseButtonEvent& ev) {
 
 Cursor Button::cursor() const {
 	return Cursor::hand;
+}
+
+// Textfield
+Textfield::Textfield(Container& c, const Rect2f& b, std::string_view name,
+		std::string_view start) : Controller(c, name) {
+	textfield_ = &create<vui::Textfield>(Rect2f {}, start,
+		panel().styles().textfield);
+	bounds(b);
+}
+
+const rvg::Paint& Textfield::classPaint() const {
+	return panel().paints().textClass;
+}
+
+void Textfield::bounds(const Rect2f& b) {
+	auto height = panel().rowHeight() - 4;
+	auto width = b.size.x - panel().nameWidth() - 2 * namePadding;
+	auto tpos = position() + Vec{panel().nameWidth() + namePadding, 2};
+	auto bounds = Rect2f {tpos, Vec{width, height}};
+
+	textfield_->bounds(bounds);
+	Controller::bounds(b);
 }
 
 /*

@@ -168,6 +168,13 @@ void MainWindow::focus(const ny::FocusEvent& ev)
 	}
 }
 
+void MainWindow::draw(const ny::DrawEvent& ev) {
+	dlg_debug("redraw event by window backend");
+	if(onDraw) {
+		onDraw(ev);
+	}
+}
+
 void MainWindow::surfaceDestroyed(const ny::SurfaceDestroyedEvent&)
 {
 	surface_ = {};

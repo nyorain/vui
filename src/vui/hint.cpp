@@ -75,6 +75,8 @@ void Hint::reset(const HintStyle& style, const Rect2f& bounds, bool force,
 		style_ = &style;
 		gui().rerecord();
 	}
+
+	gui().redraw();
 }
 
 void Hint::style(const HintStyle& style, bool force) {
@@ -106,6 +108,7 @@ void Hint::draw(vk::CommandBuffer cb) const {
 void Hint::hide(bool hide) {
 	bg_.disable(hide);
 	text_.disable(hide);
+	gui().redraw();
 }
 
 bool Hint::hidden() const {
@@ -131,9 +134,9 @@ void DelayedHint::hovered(bool hovered) {
 	hovered_ = hovered;
 }
 
-void DelayedHint::update(double delta) {
+bool DelayedHint::update(double delta) {
 	if(!hovered_) {
-		return;
+		return false;
 	}
 
 	accum_ += delta;
@@ -142,6 +145,8 @@ void DelayedHint::update(double delta) {
 	} else {
 		registerUpdate();
 	}
+
+	return false;
 }
 
 } // namespace vui

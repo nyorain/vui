@@ -99,4 +99,16 @@ void Widget::callPasteResponse(Widget& w, std::string_view str) {
 	w.pasteResponse(str);
 }
 
+bool Widget::update(double) {
+	// see header file function doc for reason of warning
+	dlg_warn("Widget::update: default implementation called");
+	return false;
+}
+
+bool Widget::updateDevice() {
+	// see header file function doc for reason of warning
+	dlg_warn("Widget::updateDevice: default implementation called");
+	return false;
+}
+
 } // namespace vui

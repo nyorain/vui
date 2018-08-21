@@ -12,9 +12,6 @@ namespace vui {
 /// Propagates input and drawing to all its children.
 class ContainerWidget : public Widget {
 public:
-	// TODO: implement hide
-	void hide(bool) override {}
-
 	/// Raises/lowers the first widget above/below the second one.
 	/// Returns false if any of the widgets isn't a direct child,
 	/// both widgets are the same or the operation isn't supported.
@@ -52,6 +49,7 @@ public:
 	void draw(vk::CommandBuffer) const override;
 	void updateScissor() override;
 	void bounds(const Rect2f&) override;
+	void hide(bool) override;
 
 	/// Returns the child widget with focus/over which the mouse hovers.
 	/// Returns nullptr if there is no such child.

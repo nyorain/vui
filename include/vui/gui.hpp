@@ -107,7 +107,11 @@ public:
 	/// Update should be called every frame (or otherwise as often as
 	/// possible) with the delta frame time in seconds.
 	/// Needed for time-sensitive stuff like animations or cusor blinking.
-	void update(double delta) override;
+	/// Returns whether anything has changed and the gui has to be
+	/// redrawn. So if this returns false, the caller does not have
+	/// to draw the gui and can therefore also wait with the next
+	/// updateDevice call before the next frame.
+	bool update(double delta) override;
 
 	/// Should be called once every frame when the device is not currently
 	/// using the rendering resources.
@@ -148,6 +152,7 @@ public:
 
 	GuiListener& listener() { return listener_.get(); }
 	void rerecord() { rerecord_ = true; }
+	void redraw() { redraw_ = true; }
 
 	/// Internal widget helpers
 	void addUpdate(Widget&);
@@ -161,9 +166,9 @@ protected:
 	using Widget::contains;
 	using Widget::updateScissor;
 
-	// TODO: implement them
+	// TODO: implement and expose them
 	void bounds(const Rect2f& r) override { Widget::bounds(r); }
-	void hide(bool) override { /* Widget::hide(h); */ }
+	void hide(bool) override {}
 	bool hidden() const override { return false; }
 	Rect2f scissor() const override { return rvg::Scissor::reset; }
 
@@ -174,8 +179,10 @@ protected:
 	std::unordered_set<Widget*> update_;
 	std::unordered_set<Widget*> updateDevice_;
 	std::pair<Widget*, MouseButton> buttonGrab_ {};
-	bool rerecord_ {};
 	rvg::Transform transform_ {};
+
+	bool rerecord_ {};
+	bool redraw_ {};
 
 	std::vector<std::unique_ptr<Widget>> destroyWidgets_;
 	std::vector<Widget*> pasteRequests_;
