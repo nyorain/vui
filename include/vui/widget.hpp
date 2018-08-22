@@ -114,6 +114,12 @@ public:
 	/// Returns false for itself.
 	virtual bool isDescendant(const Widget&) const;
 
+	/// Returns whether this widget is in the gui hierachy.
+	/// This is true if and only if it is descendant of its associated
+	/// gui object. Note that widgets outside the hierachy will probably
+	/// not function correctly.
+	virtual bool inHierachy() const;
+
 	/// Returns the parent of this widget
 	/// A widget may not have a parent.
 	virtual ContainerWidget* parent() const { return parent_; }
@@ -128,8 +134,7 @@ public:
 	Vec2f size() const { return bounds_.size; }
 
 protected:
-	Widget(Gui& gui, ContainerWidget* parent) :
-		gui_(gui), parent_(parent) {}
+	Widget(Gui& gui, ContainerWidget* parent);
 
 	/// Registers this widget for an update/updateDevice callback as soon
 	/// as possible.
@@ -153,6 +158,17 @@ protected:
 	/// Will be set everytime the cursor enters this widget. Widgets can
 	/// stil change it dynamically.
 	virtual Cursor cursor() const;
+
+	/// Must be called by widgets when they changed something visually
+	/// and rendering their content now might look different than the last
+	/// frame. Ignored if widget is not in hierachy.
+	virtual void requestRedraw();
+
+	/// Must be called by widgets when they invalidated or changed
+	/// renderering resources in a way that requires a command buffer
+	/// rerecord. Will automatically also request a redraw.
+	/// Ignored if widget is not in hierachy.
+	virtual void requestRerecord();
 
 	/// May be called by gui after this widget submitted a paste request.
 	virtual void pasteResponse(std::string_view) {}

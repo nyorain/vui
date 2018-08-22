@@ -157,7 +157,7 @@ public:
 	/// Internal widget helpers
 	void addUpdate(Widget&);
 	void addUpdateDevice(Widget&);
-	void removed(Widget&);
+	void removed(Widget&); // just a notifier, ok to call multiple times
 	void moveDestroyWidget(std::unique_ptr<Widget>);
 	void pasteRequest(Widget&);
 
@@ -171,6 +171,7 @@ protected:
 	void hide(bool) override {}
 	bool hidden() const override { return false; }
 	Rect2f scissor() const override { return rvg::Scissor::reset; }
+	bool transparent() const override { return true; }
 
 protected:
 	Context& context_;

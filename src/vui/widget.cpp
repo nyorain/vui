@@ -8,6 +8,10 @@
 namespace vui {
 
 // Widget
+Widget::Widget(Gui& gui, ContainerWidget* p) : gui_(gui), parent_(p) {
+	requestRerecord();
+}
+
 Widget::~Widget() {
 	gui().removed(*this);
 }
@@ -90,9 +94,13 @@ bool Widget::isDescendant(const Widget& up) const {
 }
 
 void Widget::parent(Widget& widget, ContainerWidget* newParent) {
-	dlg_assert(!widget.parent_ || !widget.parent_->hasChild(widget));
-	dlg_assert(!newParent || newParent->hasChild(widget));
+	if(widget.inHierachy() && (!newParent || !newParent->inHierachy())) {
+		widget.gui().removed(widget);
+	}
 	widget.parent_ = newParent;
+	if(widget.inHierachy()) {
+		widget.gui().rerecord();
+	}
 }
 
 void Widget::callPasteResponse(Widget& w, std::string_view str) {
@@ -109,6 +117,22 @@ bool Widget::updateDevice() {
 	// see header file function doc for reason of warning
 	dlg_warn("Widget::updateDevice: default implementation called");
 	return false;
+}
+
+bool Widget::inHierachy() const {
+	return isDescendant(gui());
+}
+
+void Widget::requestRedraw() {
+	if(inHierachy()) {
+		gui().redraw();
+	}
+}
+
+void Widget::requestRerecord() {
+	if(inHierachy()) {
+		gui().rerecord();
+	}
 }
 
 } // namespace vui

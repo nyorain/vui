@@ -331,16 +331,51 @@ class Textfield : public Controller {
 
 
 // idea to add to ContainerWidget
-	using Iterator = std::vector<std::unique_ptr<Widget>>::iterator;
-	using ConstIterator = std::vector<std::unique_ptr<Widget>>::const_iterator;
+// not sure if needed, we have moveBefore/moveAfter
+using Iterator = std::vector<std::unique_ptr<Widget>>::iterator;
+using ConstIterator = std::vector<std::unique_ptr<Widget>>::const_iterator;
 
-	/// Tries to find the given widget in the list of children.
-	/// Returns widgets_.end() if it could not be found.
-	Iterator find(const Widget&);
-	ConstIterator find(const Widget&) const;
+/// Tries to find the given widget in the list of children.
+/// Returns widgets_.end() if it could not be found.
+Iterator find(const Widget&);
+ConstIterator find(const Widget&) const;
 
-	virtual Widget& addBefore(Widget&, std::unique_ptr<Widget>);
-	virtual Widget& addAfter(Widget&, std::unique_ptr<Widget>);
+virtual Widget& addBefore(Widget&, std::unique_ptr<Widget>);
+virtual Widget& addAfter(Widget&, std::unique_ptr<Widget>);
 
+
+
+
+
+// taken from containerWidget
+// maybe rather name it sth like 'childBoundsChanged'? Because
+// the container widget has to decide themself how to handle it,
+// only _some_ may respond to it with a relayout
+
+/// Abstract way to tell the widget that a child has changed
+/// (e.g. size) and the whole layout needs to be recomputed.
+/// In the general case not called automatically.
+virtual void relayout() {}
+
+
+
+// idea  for textfield undo
+struct Action {
+	// Whether something was erased
+	// When this is true, str of the union is active, otherwise count
+	bool erased;
+
+	// the start position of the action
+	unsigned position;
+
+	union {
+		unsigned count;
+		std::string str;
+	};
+};
+
+std::vector<Action> actions_;
+// then add insert(start, str) and erase(start, count) functions and
+// call them instead of manual manipulation
 
 } // namepsace vui

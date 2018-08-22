@@ -1,5 +1,6 @@
 ### vui
 
+- [ ] clean this up
 - [ ] more advanced textfield
   - [x] scrolling, clipping
   - [x] enter/escape
@@ -7,18 +8,22 @@
   - [ ] some basic shortcuts like ctrl-a (might need ny fixes)
 - [ ] add hint to widget? only one pointer, will only be created when set
 	- [ ] otherwise: add it to all major classes, Textfield, Controller etc
-- [ ] vui: row
+- [ ] row, column
+- [ ] document somewhere all lifetime requirements
+	- [ ] e.g. when styles can be destroyed (even when changed in use
+	      anymore they must be kept alive for the active frame)
 - [ ] maybe not a good idea to make widgets use a transform by default.
       cleaner implementation without? And better performance
 	  maybe add universal 'layout(position, size)' method to every widget
 	  that is also just called from the constructor?
 - [ ] destruction/removal of widgets
 	- [ ] make sure to rerecord
-- [ ] vui: non-drawing widgets (like row/column) should not create
-      transform/scissor objects
 - [ ] vui: don't make windows manage layouting. Make them (like panes) manage
       exactly one embedded widget which may be a layout widget
 	  - [ ] implement real layout-only container widgets
+- [ ] don't use gui().redraw() everywhere, impl and use Widget::redraw
+	- and there only call gui redraw if the widget is added to a parent
+	- also automatically call redraw when a valid  parent is set (/changed)
 - [ ] idea: vui::WidgetWrapper: widget container that contains exactly
       one child widget (but can have additional stuff). Automatically
 	  handles events and stuff. Abstraction over Panel, multiple vui::dat

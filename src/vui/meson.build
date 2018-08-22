@@ -1,6 +1,6 @@
 vui_src = [
 	'button.cpp',
-	# 'checkbox.cpp',
+	'checkbox.cpp',
 	'colorPicker.cpp',
 	'container.cpp',
 	'dat.cpp',
@@ -9,7 +9,7 @@ vui_src = [
 	'style.cpp',
 	'textfield.cpp',
 	'widget.cpp',
-	# 'window.cpp',
+	'pane.cpp',
 ]
 
 vui_lib = library('vui',

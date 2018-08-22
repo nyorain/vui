@@ -47,14 +47,14 @@ struct TextfieldStyle {
 	const Font* font {};
 };
 
-struct WindowStyle {
+struct PaneStyle {
 	rvg::Paint* bg;
-	rvg::Paint* bgStroke;
-	std::array<float, 4> rounding {3.f, 3.f, 3.f, 3.f};
-	Vec2f outerPadding = Vec {10.f, 10.f};
-	float innerPadding = 10.f;
+	rvg::Paint* bgStroke {};
+	std::array<float, 4> rounding {0.f, 0.f, 0.f, 0.f};
+	Vec2f padding = Vec {10.f, 10.f};
 };
 
+// TODO
 struct SliderStyle {
 	rvg::PaintData left;
 	rvg::PaintData right;
@@ -86,13 +86,6 @@ struct ColorButtonStyle {
 	Vec2f padding {5.f, 5.f};
 };
 
-struct PaneStyle {
-	rvg::Paint* bg;
-	rvg::Paint* bgStroke {};
-	std::array<float, 4> rounding {3.f, 3.f, 3.f, 3.f};
-	Vec2f padding = Vec {10.f, 10.f};
-};
-
 struct CheckboxStyle {
 	rvg::Paint* bg;
 	rvg::Paint* fg;
@@ -106,7 +99,6 @@ struct Styles {
 	BasicButtonStyle basicButton {};
 	LabeledButtonStyle labeledButton {};
 	TextfieldStyle textfield {};
-	WindowStyle window {};
 	// SliderStyle slider {};
 	HintStyle hint {};
 	ColorPickerStyle colorPicker {};
@@ -133,7 +125,8 @@ protected:
 		rvg::Paint bgHover;
 		rvg::Paint bgActive;
 		rvg::Paint border;
-		rvg::Paint accent;
+		rvg::Paint accent; // e.g. checkbox active
+		rvg::Paint selection; // textfield selection
 	} paints_;
 
 	Styles styles_;

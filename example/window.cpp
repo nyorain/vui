@@ -161,7 +161,7 @@ void MainWindow::resize(const ny::SizeEvent& ev)
 
 void MainWindow::focus(const ny::FocusEvent& ev)
 {
-	dlg_debug("focus: {}", ev.gained);
+	// dlg_debug("focus: {}", ev.gained);
 	focus_ = ev.gained;
 	if(onFocus) {
 		onFocus(ev);

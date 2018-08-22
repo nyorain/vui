@@ -17,18 +17,26 @@ namespace vui::dat {
 
 class Panel;
 
-/// Contains controllers, e.g. folder or panel
-/// Contains reference to panel.
+/// Contains only Folders and Controllers.
+/// Also holds reference to its panel.
 class Container : public ContainerWidget {
 public:
+	// TODO: createAfter/createBefore
+	//   also addAfter/addBefore
+
 	virtual const Panel& panel() const = 0;
-	void relayout() override;
+	void relayout();
 
 	/// (Re-)adds a widget that is currently orphaned.
 	/// Must have been created outside the hierachy or previously
 	/// been removed from it. The widget must be a controller or
 	/// subfolder.
 	Widget& add(std::unique_ptr<Widget>) override;
+
+	/// See ContainerWidget::remove.
+	/// Removed Controllers and folders must not be accessed in any way
+	/// but can be readded later. Currently they have to readded on
+	/// a container of the same panel.
 	std::unique_ptr<Widget> remove(const Widget&) override;
 	using ContainerWidget::destroy;
 
@@ -49,16 +57,15 @@ public:
 		return ret;
 	}
 
-	// TODO: createAfter/createBefore
-	//   also addAfter/addBefore
+	bool moveBefore(const Widget& move, const Widget& before,
+		bool exactly = false) override;
+	bool moveAfter(const Widget& move, const Widget& after,
+		bool exactly = false) override;
 
 protected:
 	using ContainerWidget::ContainerWidget;
 	using ContainerWidget::bounds;
 	using ContainerWidget::size;
-
-	bool raiseAbove(const Widget&, const Widget&) override { return false; }
-	bool lowerBelow(const Widget&, const Widget&) override { return false; }
 
 	virtual Rect2f nextBounds() const; // return bounds of new controller
 	virtual void height(float delta); // called when controller added/removed
@@ -141,6 +148,7 @@ public:
 
 protected:
 	Rect2f nextBounds() const override;
+	void height(float) override;
 
 protected:
 	LabeledButton* toggleButton_;
@@ -162,7 +170,6 @@ public:
 	using Widget::bounds;
 
 	Container& container() const;
-	Container* parent() const override { return &container(); }
 	const Panel& panel() const { return container().panel(); }
 
 protected:
@@ -204,23 +211,41 @@ public:
 	const rvg::Paint& classPaint() const override;
 	using Controller::bounds;
 
-	auto& textfield() const { return *textfield_; }
-	auto& textfield() { return *textfield_; }
+	vui::Textfield& textfield() const;
 
 protected:
 	void bounds(const Rect2f&) override;
-
-protected:
-	vui::Textfield* textfield_;
 };
 
-/*
+class Checkbox : public Controller {
+public:
+	Checkbox(Container&, const Rect2f&, std::string_view name);
+
+	const Paint& bgPaint() const override { return bgColor_; }
+	const rvg::Paint& classPaint() const override;
+	using Controller::bounds;
+
+	void mouseOver(bool) override;
+	Widget* mouseButton(const MouseButtonEvent&) override;
+	vui::Checkbox& checkbox() const;
+
+protected:
+	void bounds(const Rect2f&) override;
+	Cursor cursor() const override;
+
+protected:
+	rvg::Paint bgColor_;
+	bool hovered_ {};
+	bool pressed_ {};
+};
+
 class Label : public Controller {
 public:
-	Label(Panel&, Vec2f, std::string_view name,
+	Label(Container&, const Rect2f&, std::string_view name,
 		std::string_view label);
 
 	const rvg::Paint& classPaint() const override;
+	void bounds(const Rect2f&) override;
 	void hide(bool hide) override;
 	void label(std::string_view label);
 	void draw(vk::CommandBuffer) const override;
@@ -229,148 +254,7 @@ protected:
 	rvg::Text label_;
 };
 
-class Checkbox : public Controller {
-public:
-	Checkbox(Panel&, Vec2f, std::string_view name);
-
-	void hide(bool hide) override;
-	const rvg::Paint& classPaint() const override;
-	Widget* mouseButton(const MouseButtonEvent&) override;
-	void draw(vk::CommandBuffer) const override;
-	void mouseOver(bool) override;
-	const rvg::Paint& bgPaint() const override { return bgColor_; }
-
-	void refreshTransform() override;
-	void position(Vec2f position) override;
-	void intersectScissor(const Rect2f& scissor) override;
-	using Controller::position;
-
-	auto& checkbox() const { return *checkbox_; }
-	auto& checkbox() { return *checkbox_; }
-
-protected:
-	std::optional<vui::Checkbox> checkbox_;
-	rvg::Paint bgColor_;
-};
-
-class Panel : public ContainerWidget {
-public:
-	Panel(Gui& gui, const nytl::Rect2f& bounds, float rowHeight = autoSize);
-
-	template<typename T, typename... Args>
-	T& create(Args&&... args) {
-		auto pos = position();
-		pos.y += size().y - rowHeight();
-		auto ctrl = std::make_unique<T>(*this, pos,
-			std::forward<Args>(args)...);
-		auto& ret = *ctrl;
-		add(std::move(ctrl));
-		return ret;
-	}
-
-	void hide(bool) override;
-	bool hidden() const override;
-	void size(Vec2f) override;
-
-	using Widget::size;
-
-	float rowHeight() const { return rowHeight_; }
-	float width() const { return size().x; }
-
-	float nameWidth() const { return nameWidth_; }
-	void nameWidth(float);
-
-	void open(bool open);
-	bool open() const { return open_; }
-	void toggle() { open(!open_); }
-
-	void refreshLayout();
-
-	bool remove(const Widget&);
-
-	bool disable(const Widget&);
-	bool enable(const Widget&);
-
-	// for controllers
-	const auto& paints() const { return paints_; }
-	const auto& styles() const { return styles_; }
-
-protected:
-	Widget& add(std::unique_ptr<Widget>) override;
-
-protected:
-	float rowHeight_ {};
-	float nameWidth_ {100.f};
-	bool open_ {true};
-	LabeledButton* toggleButton_ {};
-
-	struct {
-		rvg::Paint bg;
-		rvg::Paint bgHover;
-		rvg::Paint bgActive;
-
-		rvg::Paint name;
-		rvg::Paint line;
-		rvg::Paint folderLine;
-		rvg::Paint buttonClass;
-		rvg::Paint textClass;
-		rvg::Paint labelClass;
-		rvg::Paint rangeClass;
-		rvg::Paint checkboxClass;
-
-		rvg::Paint bgWidget;
-	} paints_;
-
-	struct {
-		BasicButtonStyle button;
-		LabeledButtonStyle metaButton;
-		TextfieldStyle textfield;
-	} styles_;
-
-	std::vector<std::unique_ptr<Widget>> disabled_;
-};
-
-class Folder : public ContainerWidget {
-public:
-	static constexpr auto xoff = 5.f;
-
-public:
-	Folder(Panel& panel, Vec2f, std::string_view name);
-
-	void open(bool);
-	bool open() const { return open_; }
-	void toggle() { open(!open_); }
-
-	void hide(bool) override;
-	bool hidden() const override;
-	void size(Vec2f) override {} // TODO
-	using Widget::size;
-
-	void draw(vk::CommandBuffer cb) const override;
-
-	template<typename T, typename... Args>
-	T& create(Args&&... args) {
-		auto pos = position();
-		pos.x += xoff;
-		pos.y += size().y;
-		auto ctrl = std::make_unique<T>(panel_, pos,
-			std::forward<Args>(args)...);
-		auto& ret = *ctrl;
-		add(std::move(ctrl));
-		return ret;
-	}
-
-	void refreshLayout();
-	auto& panel() const { return panel_; }
-
-protected:
-	Widget& add(std::unique_ptr<Widget> widget) override;
-
-protected:
-	Panel& panel_;
-	rvg::Shape bottomLine_;
-	bool open_ {true};
-};
+/*
 
 // TODO
 class RangeController : public Controller {

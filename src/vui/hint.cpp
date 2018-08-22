@@ -72,11 +72,12 @@ void Hint::reset(const HintStyle& style, const Rect2f& bounds, bool force,
 	}
 
 	if(sc) {
+		dlg_assert(style.bg && style.text);
+		requestRerecord(); // NOTE: could be optimized, not always needed
 		style_ = &style;
-		gui().rerecord();
 	}
 
-	gui().redraw();
+	requestRedraw();
 }
 
 void Hint::style(const HintStyle& style, bool force) {
@@ -108,7 +109,7 @@ void Hint::draw(vk::CommandBuffer cb) const {
 void Hint::hide(bool hide) {
 	bg_.disable(hide);
 	text_.disable(hide);
-	gui().redraw();
+	requestRedraw();
 }
 
 bool Hint::hidden() const {

@@ -13,16 +13,20 @@ public:
 	std::function<void(Checkbox&)> onToggle;
 
 public:
-	Checkbox(Gui&, Vec2f pos);
-	Checkbox(Gui&, const Rect2f& bounds);
-	Checkbox(Gui&, const Rect2f& bounds, const CheckboxStyle& style);
+	Checkbox(Gui&, ContainerWidget*, const Rect2f& bounds);
+	Checkbox(Gui&, ContainerWidget*, const Rect2f& bounds,
+		const CheckboxStyle& style);
 
-	auto checked() const { return checked_; }
+	/// If true, checks the checkbox, otherwise unchecks it.
+	/// Will not trigger the onToggle callbabck.
 	void set(bool);
+	auto checked() const { return checked_; }
 	void toggle() { set(!checked()); }
 
-	void size(Vec2f size) override;
-	using Widget::size;
+	void reset(const CheckboxStyle&, const Rect2f&, bool forceReload = false);
+	void style(const CheckboxStyle&, bool forceReload = false);
+	void bounds(const Rect2f&) override;
+	using Widget::bounds;
 
 	void hide(bool hide) override;
 	bool hidden() const override;
@@ -30,10 +34,14 @@ public:
 	Widget* mouseButton(const MouseButtonEvent&) override;
 	void draw(vk::CommandBuffer) const override;
 
-	const auto& style() const { return style_.get(); }
+	const auto& style() const { return *style_; }
 
 protected:
-	std::reference_wrapper<const CheckboxStyle> style_;
+	Checkbox(Gui&, ContainerWidget*);
+	Cursor cursor() const override;
+
+protected:
+	const CheckboxStyle* style_;
 	rvg::RectShape bg_;
 	rvg::RectShape fg_;
 	bool checked_ {};

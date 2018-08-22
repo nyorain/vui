@@ -111,11 +111,12 @@ void Textfield::reset(const TextfieldStyle& style, const Rect2f& bounds,
 		style_ = &style;
 		dlg_assert(style.selectedText || style.selected);
 		dlg_assert(style.cursor);
-		updatePaints();
-		gui().rerecord();
+		updatePaints(); // NOTE: could be optimized, not always needed
+		requestRerecord();
 	}
 
-	updateCursorPosition(); // automatically refreshes possible selection
+ 	// automatically refreshes selection, calls updateDraw
+	updateCursorPosition();
 }
 
 void Textfield::bounds(const Rect2f& bounds) {
@@ -141,7 +142,7 @@ void Textfield::hide(bool hide) {
 	// Textfield has many elements to hide/show and so this method
 	// is easy to get wrong. Should work in all possible states
 	bg_.disable(hide);
-	bg_.disable(drawStyle().bgStroke.has_value(), DrawType::stroke);
+	bg_.disable(hide || !drawStyle().bgStroke.has_value(), DrawType::stroke);
 	text_.disable(hide);
 
 	if(hide) {
@@ -244,6 +245,7 @@ Widget* Textfield::mouseMove(const MouseMoveEvent& ev) {
 			selection_.start = newStart;
 
 			// calls updateSelectionDraw
+			// we might have changed the cursor (above) for scolling
 			updateCursorPosition();
 		}
 	}
@@ -422,6 +424,7 @@ Widget* Textfield::key(const KeyEvent& ev) {
 	} else if(ev.key == Key::x && ev.modifiers == KeyboardModifier::ctrl) {
 		if(selection_.count) {
 			gui().listener().copy(utf8Selected());
+			updateCursor = true;
 			auto tc = text_.change();
 			cursorPos_ = selection_.start;
 			tc->utf32.erase(selection_.start, selection_.count);
@@ -525,12 +528,12 @@ void Textfield::updateCursorPosition() {
 	// Since we have changed the texts position we must refresh the
 	// bounds of the selection as well
 	updateSelectionDraw();
-	gui().redraw();
+	requestRedraw();
 }
 
 void Textfield::showCursor(bool s) {
 	cursor_.disable(!s);
-	gui().redraw();
+	requestRedraw();
 }
 
 void Textfield::blinkCursor(bool b) {
@@ -581,7 +584,7 @@ void Textfield::endSelection() {
 	selection_.count = selection_.start = {};
 	selection_.text.disable(true);
 	selection_.bg.disable(true);
-	gui().redraw();
+	requestRedraw();
 
 	if(focus_) {
 		showCursor(true);
@@ -604,13 +607,13 @@ void Textfield::updatePaints() {
 	bgPaint_.paint(draw.bg);
 	fgPaint_.paint(draw.text);
 
-	bg_.disable(!draw.bgStroke, DrawType::stroke);
+	bg_.disable(hidden() || !draw.bgStroke, DrawType::stroke);
 	if(draw.bgStroke) {
 		dlg_assert(bgStroke_.valid());
 		bgStroke_.paint(*draw.bgStroke);
 	}
 
-	gui().redraw();
+	requestRedraw();
 }
 
 void Textfield::pasteResponse(std::string_view str) {
@@ -630,6 +633,25 @@ void Textfield::pasteResponse(std::string_view str) {
 
 	cursorPos_ += u32.size();
 	updateCursorPosition();
+}
+
+// TODO: this could be improved. In other applications scrolling
+// does not move the cursor but simply scrolls the textfield offset.
+// But we currently have to mechanism for that
+// due to the way we scroll this currently also has some weird
+// behavior when not focus - we have to scroll all the way over
+// to the boundary with the (hidden) cursor before the text really starts
+// scrolling.
+Widget* Textfield::mouseWheel(const MouseWheelEvent& ev) {
+	constexpr auto factor = 1.f;
+	if(ev.distance.x) {
+		// divide offset by font height?
+		auto next = cursorPos_ - factor * ev.distance.x;
+		cursorPos_ = std::clamp<int>(next, 0, text_.utf32().size());
+		updateCursorPosition();
+	}
+
+	return this;
 }
 
 } // namespace vui

@@ -40,6 +40,14 @@ const auto folderLine = rvg::Color {255u, 255u, 255u, 5u};
 // TODO: assert expected sizes (e.g. in constructors/bounds)
 // assert(bounds.size.y == panel().rowHeight());
 // don't expose bounds publicly?
+// TODO: currently controllers/folders can't be accessed out of the
+// hierachy at all, they can't be created without parent.
+// change that? decouple panel and controller/folder at least so far
+// that this is possible (manually passing row height and name width
+// to contoller/folder?) We could decouple them completely when we
+// store all the paints and styles in gui (or some other, with gui
+// connected central instance) instead of in the panel (which is
+// redundant/resource-wasting to do for every panel anyways)
 
 constexpr auto classifierWidth = 3.f; // width of color classifiers
 constexpr auto lineHeight = 1.f; // bottomLine (separation) height
@@ -57,8 +65,6 @@ void Container::relayout() {
 	relayouting_ = true;
 	auto guad = nytl::ScopeGuard {[&]{ relayouting_ = false; }};
 
-	ContainerWidget::relayout();
-
 	// currently width of container is never changed so we only
 	// have to correct position
 	auto y = position().y;
@@ -71,8 +77,7 @@ void Container::relayout() {
 	}
 
 	if(y - position().y != size().y) {
-		ContainerWidget::size({size().x, y - position().y});
-		parent()->relayout();
+		height(y - position().y - size().y); // passing delta
 	}
 }
 
@@ -88,9 +93,16 @@ std::unique_ptr<Widget> Container::remove(const Widget& w) {
 }
 
 Widget& Container::add(std::unique_ptr<Widget> w) {
-	height(w->size().y);
-	w->position(nextBounds().position);
-	return ContainerWidget::add(std::move(w));
+	// TODO: pass on the panels row height and name width to
+	// the given widget
+
+	dlg_assert(w);
+	auto nb = nextBounds();
+	nb.size.y = w->size().y;
+	auto& ret = ContainerWidget::add(std::move(w));
+	ret.bounds(nb);
+	height(ret.size().y);
+	return ret;
 }
 
 void Container::height(float delta) {
@@ -98,7 +110,7 @@ void Container::height(float delta) {
 	s.y += delta;
 	dlg_assert(s.y > 0);
 	Container::size(s); // will refresh all child scissors
-	parent()->relayout();
+	// parent()->relayout();
 }
 
 void Container::hide(bool h) {
@@ -132,7 +144,7 @@ void Container::open(bool open) {
 
 	if(size != this->size()) {
 		Container::size(size);
-		parent()->relayout();
+		// parent()->relayout();
 	}
 }
 
@@ -148,6 +160,22 @@ Rect2f Container::nextBounds() const {
 
 float Container::closedHeight() const {
 	return panel().rowHeight();
+}
+
+bool Container::moveBefore(const Widget& move, const Widget& before, bool e) {
+	auto ret = ContainerWidget::moveBefore(move, before, e);
+	if(ret) {
+		relayout();
+	}
+	return ret;
+}
+
+bool Container::moveAfter(const Widget& move, const Widget& after, bool e) {
+	auto ret = ContainerWidget::moveAfter(move, after, e);
+	if(ret) {
+		relayout();
+	}
+	return ret;
 }
 
 // Panel
@@ -238,7 +266,6 @@ Widget& Panel::add(std::unique_ptr<Widget> w) {
 	auto y = position().y + size().y - rowHeight_;
 	toggleButton_->position({position().x, y});
 	toggleButton_->updateScissor();
-	parent()->relayout(); // TODO
 
 	return ret;
 }
@@ -295,7 +322,7 @@ void Folder::bounds(const Rect2f& b) {
 	}
 
 	Container::bounds(b);
-	gui().redraw();
+	requestRedraw();
 }
 
 void Folder::draw(vk::CommandBuffer cb) const {
@@ -313,6 +340,7 @@ void Folder::open(bool o) {
 	dlg_assert(!widgets_.empty() && widgets_.front().get() == toggleButton_);
 	auto before = toggleButton_->hidden();
 	Container::open(o);
+	container().relayout();
 	toggleButton_->hide(before); // Container::open changes it
 }
 
@@ -322,7 +350,7 @@ void Folder::hide(bool h) {
 
 	// to show it even when we are closed
 	toggleButton_->hide(h);
-	gui().redraw();
+	requestRedraw();
 }
 
 bool Folder::hidden() const {
@@ -339,6 +367,11 @@ Rect2f Folder::nextBounds() const {
 	b.position.x = position().x + folderOffset;
 	b.size.x -= folderOffset;
 	return b;
+}
+
+void Folder::height(float h) {
+	Container::height(h);
+	container().relayout();
 }
 
 // Controller
@@ -387,13 +420,11 @@ void Controller::reset(const Rect2f& bounds,
 		auto bc = bg_.change();
 		bc->size = size;
 		bc->position = pos;
-	}
 
-	if(bc) {
 		ContainerWidget::bounds(bounds);
 	}
 
-	gui().redraw();
+	requestRedraw();
 }
 
 
@@ -425,7 +456,7 @@ void Controller::hide(bool hide) {
 	bottomLine_.disable(hide);
 	name_.disable(hide);
 	bg_.disable(hide);
-	gui().redraw();
+	requestRedraw();
 }
 
 bool Controller::hidden() const {
@@ -450,6 +481,7 @@ Container& Controller::container() const {
 // of using BasicButton. Is it possible to reuse code here in any way?
 // If not deriving from BasicButton, create some class they both
 // use like ButtonBehavior or something? worth it?
+// also the same for checkbox
 Button::Button(Container& parent, const Rect2f& b, std::string_view name) :
 		Controller(parent, "") {
 	bgColor_ = {context(), rvg::colorPaint(colors::bg)};
@@ -465,10 +497,10 @@ void Button::mouseOver(bool mouseOver) {
 	hovered_ = mouseOver;
 	if(mouseOver) {
 		bgColor_.paint(rvg::colorPaint(colors::bgHover));
-		gui().redraw();
+		requestRedraw();
 	} else {
 		bgColor_.paint(rvg::colorPaint(colors::bg));
-		gui().redraw();
+		requestRedraw();
 	}
 }
 
@@ -478,7 +510,7 @@ Widget* Button::mouseButton(const MouseButtonEvent& ev) {
 		if(ev.pressed) {
 			pressed_ = true;
 			bgColor_.paint(rvg::colorPaint(colors::bgActive));
-			gui().redraw();
+			requestRedraw();
 		} else if(pressed_) {
 			auto col = hovered_ ? colors::bgHover : colors::bgActive;
 			bgColor_.paint(rvg::colorPaint(col));
@@ -486,7 +518,7 @@ Widget* Button::mouseButton(const MouseButtonEvent& ev) {
 			if(hovered_ && onClick) {
 				onClick();
 			}
-			gui().redraw();
+			requestRedraw();
 		}
 	}
 
@@ -500,8 +532,7 @@ Cursor Button::cursor() const {
 // Textfield
 Textfield::Textfield(Container& c, const Rect2f& b, std::string_view name,
 		std::string_view start) : Controller(c, name) {
-	textfield_ = &create<vui::Textfield>(Rect2f {}, start,
-		panel().styles().textfield);
+	create<vui::Textfield>(Rect2f {}, start, panel().styles().textfield);
 	bounds(b);
 }
 
@@ -515,9 +546,115 @@ void Textfield::bounds(const Rect2f& b) {
 	auto tpos = position() + Vec{panel().nameWidth() + namePadding, 2};
 	auto bounds = Rect2f {tpos, Vec{width, height}};
 
-	textfield_->bounds(bounds);
+	textfield().bounds(bounds);
 	Controller::bounds(b);
 }
+
+vui::Textfield& Textfield::textfield() const {
+	dlg_assert(widgets_.size() == 1);
+	dlg_assert(dynamic_cast<vui::Textfield*>(widgets_[0].get()));
+	return *static_cast<vui::Textfield*>(widgets_[0].get());
+}
+
+// Checkbox
+// See dat::Button::Button implementation code duplicattion comment
+Checkbox::Checkbox(Container& c, const Rect2f& b, std::string_view name)
+		: Controller(c, name) {
+	bgColor_ = {context(), rvg::colorPaint(colors::bg)};
+	create<vui::Checkbox>(Rect2f {}); // no custom style needed?
+	bounds(b);
+}
+
+const rvg::Paint& Checkbox::classPaint() const {
+	return panel().paints().checkboxClass;
+}
+
+void Checkbox::bounds(const Rect2f& b) {
+	auto height = b.size.y / 2;
+	auto tpos = position() + Vec{panel().nameWidth() + namePadding,
+		(b.size.y - height) / 2};
+	auto bounds = Rect2f {tpos, Vec{height, height}};
+
+	checkbox().bounds(bounds);
+	Controller::bounds(b);
+}
+
+vui::Checkbox& Checkbox::checkbox() const {
+	dlg_assert(widgets_.size() == 1);
+	dlg_assert(dynamic_cast<vui::Checkbox*>(widgets_[0].get()));
+	return *static_cast<vui::Checkbox*>(widgets_[0].get());
+}
+
+void Checkbox::mouseOver(bool mouseOver) {
+	Controller::mouseOver(mouseOver);
+	hovered_ = mouseOver;
+	if(mouseOver) {
+		bgColor_.paint(rvg::colorPaint(colors::bgHover));
+		requestRedraw();
+	} else {
+		bgColor_.paint(rvg::colorPaint(colors::bg));
+		requestRedraw();
+	}
+}
+
+Widget* Checkbox::mouseButton(const MouseButtonEvent& ev) {
+	Controller::mouseButton(ev);
+	if(ev.button == MouseButton::left) {
+		if(ev.pressed) {
+			pressed_ = true;
+			bgColor_.paint(rvg::colorPaint(colors::bgActive));
+			requestRedraw();
+		} else if(pressed_) {
+			auto col = hovered_ ? colors::bgHover : colors::bgActive;
+			bgColor_.paint(rvg::colorPaint(col));
+			pressed_ = false;
+			if(hovered_) {
+				checkbox().toggle();
+			}
+			requestRedraw();
+		}
+	}
+
+	return this;
+}
+
+Cursor Checkbox::cursor() const {
+	return Cursor::hand;
+}
+
+// Label
+Label::Label(Container& p, const Rect2f& b, std::string_view name,
+		std::string_view label) : Controller(p, name) {
+	label_ = {context(), label, gui().font(), {}};
+	bounds(b);
+}
+
+const rvg::Paint& Label::classPaint() const {
+	return panel().paints().labelClass;
+}
+
+void Label::bounds(const Rect2f& b) {
+	auto y = (b.size.y - label_.font()->height() - 1) / 2;
+	auto lc = label_.change();
+	lc->position = b.position + Vec2f {panel().nameWidth() + 4, y};
+	Controller::bounds(b);
+}
+
+void Label::hide(bool hide) {
+	label_.disable(hide);
+}
+
+void Label::label(std::string_view label) {
+	auto lc = label_.change();
+	lc->utf8(label);
+}
+
+void Label::draw(vk::CommandBuffer cb) const {
+	Controller::draw(cb);
+	panel().paints().name.bind(cb);
+	label_.draw(cb);
+}
+
 
 /*
 // Text

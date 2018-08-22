@@ -7,10 +7,10 @@
 
 #include "vui/gui.hpp"
 #include "vui/button.hpp"
-// #include "vui/window.hpp"
+#include "vui/pane.hpp"
 #include "vui/colorPicker.hpp"
 #include "vui/textfield.hpp"
-// #include "vui/checkbox.hpp"
+#include "vui/checkbox.hpp"
 #include "vui/dat.hpp"
 
 #include <rvg/context.hpp>
@@ -58,7 +58,7 @@ using namespace nytl::vec::cw::operators;
 // settings
 constexpr auto appName = "rvg-example";
 constexpr auto engineName = "vpp,rvg";
-constexpr auto useValidation = false;
+constexpr auto useValidation = true;
 constexpr auto startMsaa = vk::SampleCountBits::e1;
 constexpr auto layerName = "VK_LAYER_LUNARG_standard_validation";
 constexpr auto printFrames = true;
@@ -188,7 +188,7 @@ int main() {
 	if(useValidation) {
 		auto layers = {
 			layerName,
-			// "VK_LAYER_RENDERDOC_Capture",
+			"VK_LAYER_RENDERDOC_Capture",
 		};
 
 		instanceInfo.enabledLayerCount = layers.size();
@@ -224,6 +224,7 @@ int main() {
 
 	auto phdevs = vk::enumeratePhysicalDevices(instance);
 	auto phdev = vpp::choose(phdevs, instance, vkSurf);
+	dlg_info("using: {}", vpp::description(phdev, "\n\t"));
 
 	auto queueFlags = vk::QueueBits::compute | vk::QueueBits::graphics;
 	int queueFam = vpp::findQueueFamily(phdev, instance, vkSurf, queueFlags);
@@ -250,6 +251,10 @@ int main() {
 	};
 
 	auto renderer = Renderer(renderInfo);
+
+	// logical variables for main loop
+	bool redraw = true;
+	auto run = true;
 
 	// rvg
 	rvg::Context ctx(device, {renderer.renderPass(), 0, true});
@@ -297,7 +302,9 @@ int main() {
 	vui::Gui gui(ctx, lsFont, listener);
 
 	auto bounds = nytl::Rect2f {100, 100, vui::autoSize, vui::autoSize};
-	auto& cp = gui.create<vui::ColorPicker>(bounds);
+	auto& pane = gui.create<vui::Pane>(bounds);
+
+	auto& cp = pane.createResize<vui::ColorPicker>({vui::autoSize, vui::autoSize});
 	cp.onChange = [&](auto& cp){
 		svgPaint.paint(rvg::colorPaint(cp.picked()));
 	};
@@ -319,21 +326,42 @@ int main() {
 		dlg_info("button pressed");
 	};
 
+	bounds.position = {100, 700};
+	auto& checkbox = gui.create<vui::Checkbox>(bounds);
+	checkbox.onToggle = [&](auto& box) {
+		dlg_info("toggled: {}", box.checked());
+	};
+
+	bounds.position = {400, 700};
+	auto& cb = gui.create<vui::ColorButton>(bounds);
+	cb.onChange = [&](auto& cb) {
+		*paint.change() = rvg::colorPaint(
+			cb.colorPicker().picked());
+		redraw = true;
+	};
+
+	// dat
+	// https://www.reddit.com/r/leagueoflegends/comments/3nnm36
 	auto pos = nytl::Vec2f {500, 0};
 	auto& panel = gui.create<vui::dat::Panel>(pos, 300.f);
 
 	auto& f1 = panel.create<vui::dat::Folder>("folder 1");
 	auto& b1 = f1.create<vui::dat::Button>("button 1");
 	b1.onClick = [&](){ dlg_info("click 1"); };
-	f1.create<vui::dat::Button>("button 4");
-	f1.create<vui::dat::Button>("button 5");
+	f1.create<vui::dat::Button>("button 2");
+	f1.create<vui::dat::Checkbox>("extra llama");
+	f1.create<vui::dat::Checkbox>("this is great").checkbox().set(true);
+	f1.create<vui::dat::Button>("button 3");
+	f1.create<vui::dat::Textfield>("Unload the", "Toad");
 
 	auto& f2 = panel.create<vui::dat::Folder>("folder 2");
-	auto& b2 = f2.create<vui::dat::Button>("button 2");
+	f2.create<vui::dat::Textfield>("Unstick the", "Lick");
+	auto& b2 = f2.create<vui::dat::Button>("button 4");
 	b2.onClick = [&](){ dlg_info("click 2"); };
+	f2.create<vui::dat::Textfield>("Unbench the", "Kench");
 
 	auto& nf1 = f2.create<vui::dat::Folder>("nested folder 1");
-	auto& b3 = nf1.create<vui::dat::Button>("button 3");
+	auto& b3 = nf1.create<vui::dat::Button>("button 5");
 	b3.onClick = [&](){ dlg_info("click 3"); };
 
 	auto& b6 = nf1.create<vui::dat::Button>("button 6");
@@ -342,63 +370,21 @@ int main() {
 	auto& b7 = nf1.create<vui::dat::Button>("button 7");
 	b7.onClick = [&]{
 		if(removed6) {
-			nf1.add(std::move(removed6));
+			f2.add(std::move(removed6));
+			dlg_assert(f2.moveBefore(b6, nf1));
 		} else {
 			removed6 = nf1.remove(b6);
 		}
 	};
 
 	nf1.create<vui::dat::Button>("button 8");
+	nf1.create<vui::dat::Textfield>("random textfield");
 
-	/*
-	auto& win = gui.create<vui::Window>(nytl::Rect2f {100, 100, 500, 880});
-	auto& button = win.create<vui::LabeledButton>("button, waddup");
-	button.onClick = [&](auto&) { dlg_info("Clicked!"); };
-	auto& cp = win.create<vui::ColorButton>(
-		nytl::Vec2f{vui::autoSize, vui::autoSize}, rvg::Color {40, 40, 40});
-	cp.onChange = [&](auto& cp){
-		svgPaint.paint(rvg::colorPaint(cp.picked()));
-	};
-
-	win.create<vui::LabeledButton>("b#2");
-	win.create<vui::Checkbox>();
-
-	auto& tf = win.createSized<vui::Textfield>(nytl::Vec {400.f, vui::autoSize});
-	tf.onChange = [&](auto& tf) {
-		dlg_info("changed: {}", tf.utf8());
-	};
-	*/
+	f2.create<vui::dat::Label>("Unclog the", "frog");
+	f2.create<vui::dat::Label>("Unload the", "toad");
+	f2.create<vui::dat::Checkbox>("Go away");
 
 	svgPaint = {ctx, rvg::colorPaint(cp.picked())};
-
-	/*
-	// dat
-	// https://www.reddit.com/r/leagueoflegends/comments/3nnm36
-	auto& panel = gui.create<vui::dat::Panel>(
-		nytl::Rect2f {800.f, 0.f, vui::autoSize, vui::autoSize});
-	panel.create<vui::dat::Button>("Unload the toad");
-	panel.create<vui::dat::Textfield>("Some textfield");
-	panel.create<vui::dat::Button>("Unclog the frog");
-
-	auto& folder = panel.create<vui::dat::Folder>("Misc");
-	folder.create<vui::dat::Button>("Eyooo");
-	folder.create<vui::dat::Button>("Waddupp");
-	folder.create<vui::dat::Textfield>("Thiccness");
-	folder.create<vui::dat::Textfield>("Amount of parrots needed");
-	folder.create<vui::dat::Button>("Ayy");
-
-	auto& folder2 = panel.create<vui::dat::Folder>("Specifics");
-	folder2.create<vui::dat::Button>("Permit the kermit");
-	folder2.create<vui::dat::Label>("Days since a linux install", "42");
-	folder2.create<vui::dat::Checkbox>("I want an extra llama");
-	folder2.create<vui::dat::Button>("Unstick the lick");
-
-	auto& nested = folder2.create<vui::dat::Folder>("Nested");
-	nested.create<vui::dat::Label>("Does this work?", "Hopefully");
-
-	panel.create<vui::dat::Textfield>("Awesomeness", "Over 9000");
-	panel.create<vui::dat::Button>("Unclog the frog");
-	*/
 
 	// render recoreding
 	renderer.onRender += [&](vk::CommandBuffer buf){
@@ -419,9 +405,6 @@ int main() {
 	renderer.invalidate();
 
 	// connect window & renderer
-	// TODO: statements above might have to set redraw
-	bool redraw = true;
-	auto run = true;
 	window.onClose = [&](const auto&) { run = false; };
 	window.onKey = [&](const auto& ev) {
 		auto processed = false;
@@ -445,16 +428,6 @@ int main() {
 			if(ev.keycode == ny::Keycode::escape) {
 				dlg_info("Escape pressed, exiting");
 				run = false;
-			} else if(ev.keycode == ny::Keycode::b) {
-				*paint.change() = rvg::colorPaint({rvg::norm, 0.2, 0.2, 0.8});
-			} else if(ev.keycode == ny::Keycode::g) {
-				*paint.change() = rvg::colorPaint({rvg::norm, 0.1, 0.6, 0.3});
-			} else if(ev.keycode == ny::Keycode::r) {
-				*paint.change() = rvg::colorPaint({rvg::norm, 0.8, 0.2, 0.3});
-			} else if(ev.keycode == ny::Keycode::d) {
-				*paint.change() = rvg::colorPaint({rvg::norm, 0.1, 0.1, 0.1});
-			} else if(ev.keycode == ny::Keycode::w) {
-				*paint.change() = rvg::colorPaint(rvg::Color::white);
 			} else if(ev.keycode == ny::Keycode::p) {
 				*paint.change() = rvg::linearGradient({0, 0}, {2000, 1000},
 					{255, 0, 0}, {255, 255, 0});
@@ -462,6 +435,7 @@ int main() {
 				*paint.change() = rvg::radialGradient({1000, 500}, 0, 1000,
 					{255, 0, 0}, {255, 255, 0});
 			}
+			redraw = true;
 		}
 	};
 	window.onResize = [&](const auto& ev) {
@@ -482,6 +456,11 @@ int main() {
 	ktc::Subpath subpath;
 	bool first = true;
 
+	window.onMouseWheel = [&](const auto& ev) {
+		auto p = static_cast<nytl::Vec2f>(ev.position);
+		gui.mouseWheel({ev.value, p});
+	};
+
 	window.onMouseButton = [&](const auto& ev) {
 		auto p = static_cast<nytl::Vec2f>(ev.position);
 		if(gui.mouseButton({ev.pressed,
@@ -500,6 +479,7 @@ int main() {
 			} else {
 				subpath.sqBezier(p);
 				shape.change()->points = ktc::flatten(subpath);
+				redraw = true;
 			}
 		} else if(ev.button == ny::MouseButton::right) {
 			// win.position(p);
@@ -529,23 +509,28 @@ int main() {
 		auto deltaCount = std::chrono::duration_cast<Secf>(diff).count();
 		lastFrame = now;
 
-		if(!redraw) {
-			// TODO: ideally we would use waitEvents and some threaded
-			// wake-up mechanism
-			constexpr auto idleRate = 144.f; // in hz
-			std::this_thread::sleep_for(Secf(1 / idleRate));
-			if(!appContext->pollEvents()) {
-				dlg_info("pollEvents returned false");
-				return 0;
-			}
-
-			redraw |= gui.update(deltaCount);
-			if(!redraw) {
-				continue;
-			}
+		if(!appContext->pollEvents()) {
+			dlg_info("pollEvents returned false");
+			return 0;
 		}
 
-		dlg_trace("rendering frame {}", ++i);
+		redraw |= gui.update(deltaCount);
+
+		if(!redraw) {
+			// skip this frame
+			// TODO: would be better to call waitEvents but would
+			// require threaded wake up mechanism
+			auto idleRate = 60.f; // in hz
+			std::this_thread::sleep_for(Secf(1 / idleRate));
+			++i;
+			continue;
+		}
+
+		if(printFrames && i > 20) {
+			dlg_trace("Skipped {} frames", i);
+		}
+
+		i = 0u;
 		if(gui.updateDevice()) {
 			dlg_info("gui rerecord");
 			renderer.invalidate();

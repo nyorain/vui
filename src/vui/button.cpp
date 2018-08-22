@@ -59,10 +59,9 @@ void BasicButton::reset(const BasicButtonStyle& style, const Rect2f& bounds,
 	if(sc) {
 		style_ = &style;
 		updatePaints();
-		gui().rerecord(); // background stroke might have changed
 	}
 
-	gui().redraw();
+	requestRedraw();
 }
 
 void BasicButton::style(const BasicButtonStyle& style, bool force) {
@@ -90,11 +89,11 @@ const ButtonDraw& BasicButton::drawStyle() const {
 void BasicButton::updatePaints() {
 	auto& draw = drawStyle();
 	bgFill_.paint(draw.bg);
-	bg_.disable(!draw.bgStroke, DrawType::stroke);
+	bg_.disable(hidden() || !draw.bgStroke, DrawType::stroke);
 	if(draw.bgStroke.has_value()) {
 		bgStroke_.paint(*draw.bgStroke);
 	}
-	gui().redraw();
+	requestRedraw();
 }
 
 Widget* BasicButton::mouseButton(const MouseButtonEvent& event) {
@@ -118,8 +117,8 @@ Widget* BasicButton::mouseButton(const MouseButtonEvent& event) {
 
 void BasicButton::hide(bool hide) {
 	bg_.disable(hide);
-	bg_.disable(drawStyle().bgStroke.has_value(), DrawType::stroke);
-	gui().redraw();
+	bg_.disable(hide || !drawStyle().bgStroke.has_value(), DrawType::stroke);
+	requestRedraw();
 }
 
 bool BasicButton::hidden() const {
@@ -223,7 +222,7 @@ void LabeledButton::reset(const LabeledButtonStyle& style,
 	style_ = &style;
 	auto& s = style.basic ? *style.basic : gui().styles().basicButton;
 	BasicButton::reset(s, {pos, size}, force);
-	gui().redraw();
+	requestRedraw();
 }
 
 void LabeledButton::clicked(const MouseButtonEvent&) {

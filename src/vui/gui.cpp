@@ -163,7 +163,7 @@ void Gui::removed(Widget& widget) {
 }
 
 void Gui::moveDestroyWidget(std::unique_ptr<Widget> w) {
-	dlg_assert(w);
+	dlg_assert(w && !w->parent());
 	destroyWidgets_.emplace_back(std::move(w));
 }
 

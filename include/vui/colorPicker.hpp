@@ -11,10 +11,10 @@
 
 #include <functional>
 
+namespace vui {
+
 // TODO: overwrite contains to exclude the middle gap
 // use hand cursor?
-
-namespace vui {
 
 /// Basic hsv (hue, saturation, value) color picker.
 /// Has a hue selector and a larger field with combined saturation/value
@@ -82,7 +82,6 @@ protected:
 	bool slidingHue_ {};
 };
 
-/*
 /// A button that shows a ColorPicker when pressed.
 /// Displays the selected color as button "label".
 class ColorButton : public BasicButton {
@@ -92,38 +91,34 @@ public:
 	std::function<void(ColorButton&)> onChange;
 
 public:
-	ColorButton(Gui&, const Rect2f& bounds,
+	ColorButton(Gui&, ContainerWidget*, const Rect2f& bounds,
 		const Vec2f& pickerSize = {autoSize, autoSize},
 		const Color& start = {20, 20, 20});
-	ColorButton(Gui&, const Rect2f& bounds, const Vec2f& pickerSize,
-		const Color& start, const ColorButtonStyle& style);
+	ColorButton(Gui&, ContainerWidget*, const Rect2f& bounds,
+		const Vec2f& pickerSize, const Color& start,
+		const ColorButtonStyle& style);
 
-	using Widget::size;
-	using Widget::position;
-
-	void size(Vec2f size) override;
-	void position(Vec2f pos) override;
-
+	void reset(const ColorButtonStyle&, const Rect2f&, bool forceReload = false);
+	void style(const ColorButtonStyle& style, bool forceReload = false);
+	void bounds(const Rect2f& bounds) override;
 	void hide(bool hide) override;
+	using BasicButton::bounds;
 
 	void focus(bool gained) override;
 	void draw(vk::CommandBuffer) const override;
 
-	const auto& style() const { return style_.get(); }
-	const auto& cp() const { return *cp_; }
-	auto picked() const { return cp().picked(); }
+	const auto& style() const { return *style_; }
+	const ColorPicker& colorPicker() const;
+	auto picked() const { return colorPicker().picked(); }
 
 protected:
 	void clicked(const MouseButtonEvent&) override;
 
 protected:
-	std::reference_wrapper<const ColorButtonStyle> style_;
-
+	const ColorButtonStyle* style_;
 	Paint colorPaint_;
 	RectShape color_;
 	Pane* pane_;
-	ColorPicker* cp_;
 };
-*/
 
 } // namespace vui

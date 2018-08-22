@@ -56,7 +56,8 @@ void ContainerWidget::refreshFocus() {
 
 Widget* ContainerWidget::mouseMove(const MouseMoveEvent& ev) {
 	refreshMouseOver(ev.position);
-	return mouseOver_ ? mouseOver_->mouseMove(ev) : nullptr;
+	return mouseOver_ ? mouseOver_->mouseMove(ev) :
+		(transparent() ? nullptr : this);
 }
 
 Widget* ContainerWidget::mouseButton(const MouseButtonEvent& ev) {
@@ -71,7 +72,8 @@ Widget* ContainerWidget::mouseButton(const MouseButtonEvent& ev) {
 		}
 	}
 
-	return mouseOver_? mouseOver_->mouseButton(ev) : nullptr;
+	return mouseOver_? mouseOver_->mouseButton(ev) :
+		(transparent() ? nullptr : this);
 }
 
 Widget* ContainerWidget::mouseWheel(const MouseWheelEvent& ev) {
@@ -122,7 +124,6 @@ Widget& ContainerWidget::add(std::unique_ptr<Widget> widget) {
 	}
 
 	ret.updateScissor();
-	gui().rerecord();
 	return ret;
 }
 
@@ -146,9 +147,12 @@ std::unique_ptr<Widget> ContainerWidget::remove(const Widget& widget) {
 	}
 
 
+	auto& w = *it;
+	dlg_assert(w->parent() == this);
+	parent(*w, nullptr);
+
 	auto ret = std::move(*it);
 	widgets_.erase(it);
-	gui().removed(*ret);
 	return ret;
 }
 
@@ -162,37 +166,39 @@ bool ContainerWidget::destroy(const Widget& widget) {
 	return true;
 }
 
-bool ContainerWidget::raiseAbove(const Widget& raise, const Widget& above) {
-	auto r = findWidget(widgets_, raise);
-	auto a = findWidget(widgets_, above);
-	if(r == widgets_.end() || a == widgets_.end() || r == a) {
+bool ContainerWidget::moveAfter(const Widget& move, const Widget& after,
+		bool exactly) {
+	auto m = findWidget(widgets_, move);
+	auto a = findWidget(widgets_, after);
+	if(m == widgets_.end() || a == widgets_.end() || m == a) {
 		return false;
 	}
 
-	if(r >= a) {
+	if(!exactly && m >= a) {
 		return true;
 	}
 
 	// basically (sketches help): move r after a
-	std::rotate(r, r + 1, a + 1);
-	gui().rerecord();
+	std::rotate(m, m + 1, a + 1);
+	requestRerecord();
 	return true;
 }
 
-bool ContainerWidget::lowerBelow(const Widget& lower, const Widget& below) {
-	auto l = findWidget(widgets_, lower);
-	auto b = findWidget(widgets_, below);
-	if(l == widgets_.end() || b == widgets_.end() || l == b) {
+bool ContainerWidget::moveBefore(const Widget& move, const Widget& before,
+		bool exactly) {
+	auto m = findWidget(widgets_, move);
+	auto b = findWidget(widgets_, before);
+	if(m == widgets_.end() || b == widgets_.end() || m == b) {
 		return false;
 	}
 
-	if(l <= b) {
+	if(!exactly && m <= b) {
 		return true;
 	}
 
 	// basically (sketches help): move l before b
-	std::rotate(b, l, l);
-	gui().rerecord();
+	std::rotate(b, m, m + 1);
+	requestRerecord();
 	return true;
 }
 

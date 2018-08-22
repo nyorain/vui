@@ -7,18 +7,14 @@
 namespace vui {
 
 /// Abstract widget that owns and manages other widgets.
-/// Can be somethin abstract like a layout, some kind of widget group
-/// or Gui as root node itself.
+/// Can be something abstract like a layout, a layout holding only
+/// one (maybe optional) child widget like a panel or Gui as root node itself.
+/// Lightweight implementaiton that does not make any assumptions over its
+/// children so should generally be used instead of manually propagating
+/// input (which is easy to get wrong).
 /// Propagates input and drawing to all its children.
 class ContainerWidget : public Widget {
 public:
-	/// Raises/lowers the first widget above/below the second one.
-	/// Returns false if any of the widgets isn't a direct child,
-	/// both widgets are the same or the operation isn't supported.
-	/// Will have no effect if the conditions are already met.
-	virtual bool raiseAbove(const Widget& raise, const Widget& above);
-	virtual bool lowerBelow(const Widget& lower, const Widget& below);
-
 	/// Return the highest/lowest widgets ordering-wise.
 	virtual const Widget* highestWidget() const;
 	virtual const Widget* lowestWidget() const;
@@ -31,14 +27,6 @@ public:
 	/// Returns false for itself.
 	virtual bool hasDescendant(const Widget&) const;
 
-	// TODO: expose this here, publicly? probably not good idea
-	// not all container widgets have a layout concept
-
-	/// Abstract way to tell the widget that a child has changed
-	/// (e.g. size) and the whole layout needs to be recomputed.
-	/// In the general case not called automatically.
-	virtual void relayout() {}
-
 	Widget* mouseMove(const MouseMoveEvent&) override;
 	Widget* mouseButton(const MouseButtonEvent&) override;
 	Widget* mouseWheel(const MouseWheelEvent&) override;
@@ -50,11 +38,15 @@ public:
 	void updateScissor() override;
 	void bounds(const Rect2f&) override;
 	void hide(bool) override;
+	using Widget::bounds;
 
 	/// Returns the child widget with focus/over which the mouse hovers.
 	/// Returns nullptr if there is no such child.
 	Widget* childMouseOver() const { return mouseOver_; }
 	Widget* childFocus() const { return focus_; }
+
+	/// Returns all current children
+	const auto& children() const { return widgets_; }
 
 protected:
 	using Widget::Widget;
@@ -89,6 +81,21 @@ protected:
 	/// the widget later on.
 	virtual bool destroy(const Widget&);
 
+	/// Changes the order of children in that it moves the first one
+	/// before/after the reference widget given as second parameter.
+	/// Returns false if any of the widgets isn't a direct child
+	/// or both widgets are the same.
+	/// If exactly is false, will return without effect (returning true)
+	/// if the condition is already met and not move the first widget
+	/// to the _exact_ position before/after the second widget.
+	/// Will not explicitly rerecord the gui, even when child order changed.
+	/// Since drawing order is important for overdrawing, moveBefore can
+	/// also be interpreted as lowerBelow and moveAfter as raiseAbove.
+	virtual bool moveBefore(const Widget& move, const Widget& before,
+		bool exactly = false);
+	virtual bool moveAfter(const Widget& move, const Widget& after,
+		bool exactly = false);
+
 	/// Creates a widget of the given type with the given arguments and
 	/// adds it to this container. The widget must have a
 	/// constructor(Gui&, ContainerWidget*, Args&&...).
@@ -102,6 +109,8 @@ protected:
 		add(std::move(widget));
 		return ret;
 	}
+
+	virtual bool transparent() const { return false; }
 
 protected:
 	// sorted by order in which they should be drawn and otherwise
