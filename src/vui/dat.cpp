@@ -598,7 +598,10 @@ void Checkbox::mouseOver(bool mouseOver) {
 }
 
 Widget* Checkbox::mouseButton(const MouseButtonEvent& ev) {
-	Controller::mouseButton(ev);
+	if(Controller::mouseButton(ev) == &checkbox()) {
+		return &checkbox();
+	}
+
 	if(ev.button == MouseButton::left) {
 		if(ev.pressed) {
 			pressed_ = true;

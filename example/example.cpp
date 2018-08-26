@@ -490,7 +490,7 @@ int main() {
 		gui.mouseMove({static_cast<nytl::Vec2f>(ev.position)});
 	};
 
-	window.onDraw = [&](const auto& ev) {
+	window.onDraw = [&](const auto&) {
 		redraw = true;
 	};
 
