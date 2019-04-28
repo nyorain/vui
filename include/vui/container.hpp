@@ -16,6 +16,8 @@ namespace vui {
 class ContainerWidget : public Widget {
 public:
 	/// Return the highest/lowest widgets ordering-wise.
+	/// Containers may order after different criteria like add order
+	/// or last focused (e.g. usually used for floating windows).
 	virtual const Widget* highestWidget() const;
 	virtual const Widget* lowestWidget() const;
 
