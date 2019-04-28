@@ -613,6 +613,7 @@ Widget* Checkbox::mouseButton(const MouseButtonEvent& ev) {
 			pressed_ = false;
 			if(hovered_) {
 				checkbox().toggle();
+				checkbox().onToggle(checkbox());
 			}
 			requestRedraw();
 		}
