@@ -95,6 +95,7 @@ public:
 
 	float rowHeight() const { return rowHeight_; }
 	float nameWidth() const { return nameWidth_; }
+	float fontHeight() const { return std::floor(rowHeight() * 0.6f); }
 
 	// for controllers
 	const auto& paints() const { return paints_; }

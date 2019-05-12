@@ -41,8 +41,8 @@ Textfield::Textfield(Gui& gui, ContainerWidget* p) : Widget(gui, p) {
 	selection_.bg = {context(), {}, {}, {true, 0.f}};
 	selection_.bg.disable(true);
 
-	text_ = {context(), U"", gui.font(), {}};
-	selection_.text = {context(), U"", gui.font(), {}};
+	text_ = {context(), {}, "", gui.font(), 14.f};
+	selection_.text = {context(), {}, "", gui.font(), 14.f};
 	selection_.text.disable(true);
 
 	cursor_ = {context(), {}, {}, {true, 0.f}};
@@ -71,14 +71,15 @@ void Textfield::reset(const TextfieldStyle& style, const Rect2f& bounds,
 	// analyze
 	auto pos = bounds.position;
 	auto size = bounds.size;
-	const auto& string = ostring ? nytl::toUtf32(*ostring) : text_.utf32();
-	auto& font = style.font ? *style.font : gui().font();
-	auto textSize = nytl::Vec2f {font.width(string), font.height()};
+	auto string = ostring ? std::string(*ostring) : text_.text();
+	auto font = style.font.font ? *style.font.font : gui().font();
+	auto height = style.font.height;
+	auto textSize = nytl::Vec2f{font.width(string, height), height};
 	auto textPos = style.padding; // local
 	auto stroke = bgStrokeNeeded(style);
 
 	if(size.x == autoSize) {
-		size.x = font.width(U".:This is the default textfield length:.");
+		size.x = font.width(".:This is the default textfield length:.", height);
 	}
 
 	if(size.y == autoSize) {
@@ -98,8 +99,12 @@ void Textfield::reset(const TextfieldStyle& style, const Rect2f& bounds,
 
 		auto tc = text_.change();
 		tc->position = pos + textPos;
-		tc->utf32 = string;
-		tc->font = &font;
+		tc->text = string;
+		tc->font = font;
+	}
+
+	if(ostring) {
+		content_ = nytl::toUtf32(*ostring);
 	}
 
 	// propagate
@@ -128,13 +133,18 @@ void Textfield::style(const TextfieldStyle& style, bool force) {
 }
 
 void Textfield::utf8(std::string_view str) {
-	utf32(nytl::toUtf32(str));
+	endSelection();
+	cursorPos_ = 0;
+	text_.change()->text = str;
+	content_ = nytl::toUtf32(str);
+	updateCursorPosition();
 }
 
 void Textfield::utf32(std::u32string_view str) {
 	endSelection();
 	cursorPos_ = 0;
-	text_.change()->utf32 = str;
+	text_.change()->text = nytl::toUtf8(str);
+	content_ = str;
 	updateCursorPosition();
 }
 
@@ -271,15 +281,15 @@ void Textfield::updateSelectionDraw() {
 	sc->position.x = b1.position.x;
 	sc->position.y = text_.position().y - 1.f;
 	sc->size.x = b2.position.x + b2.size.x - b1.position.x;
-	sc->size.y = text_.font()->height() + 2.f;
+	sc->size.y = text_.height() + 2.f;
 	selection_.bg.disable(false);
 
 	auto tc = selection_.text.change();
 	tc->position.x = b1.position.x;
 	tc->position.y = text_.position().y;
-	tc->utf32 = {
-		text_.utf32().begin() + selection_.start,
-		text_.utf32().begin() + selection_.start + selection_.count};
+	tc->text = {
+		content_.begin() + selection_.start,
+		content_.begin() + selection_.start + selection_.count};
 	selection_.text.disable(false);
 }
 
@@ -311,18 +321,20 @@ Widget* Textfield::textInput(const TextInputEvent& ev) {
 		return nullptr;
 	}
 
-	auto utf32 = toUtf32(ev.utf8);
+	auto utf32 = nytl::toUtf32(ev.utf8);
 
 	{
-		auto tc = text_.change();
 		// erase current selection if there is one
 		if(selection_.count) {
 			cursorPos_ = selection_.start;
-			tc->utf32.erase(selection_.start, selection_.count);
+			content_.erase(selection_.start, selection_.count);
 		}
 
-		tc->utf32.insert(cursorPos_, utf32);
-		dlg_assert(cursorPos_ <= tc->utf32.length());
+		content_.insert(cursorPos_, utf32);
+		dlg_assert(cursorPos_ <= content_.length());
+
+		auto tc = text_.change();
+		tc->text = nytl::toUtf8(content_);
 	}
 
 	endSelection();
@@ -349,16 +361,16 @@ Widget* Textfield::key(const KeyEvent& ev) {
 	bool changed = false;
 	bool updateCursor = false;
 	if(ev.key == Key::backspace && cursorPos_ > 0) {
-		auto tc = text_.change();
 		changed = true;
 		if(selection_.count) {
-			tc->utf32.erase(selection_.start, selection_.count);
+			content_.erase(selection_.start, selection_.count);
 			cursorPos_ = selection_.start;
 			endSelection();
 		} else {
 			cursorPos_ -= 1;
-			tc->utf32.erase(cursorPos_, 1);
+			content_.erase(cursorPos_, 1);
 		}
+		text_.change()->text = nytl::toUtf8(content_);
 		updateCursor = true;
 	} else if(ev.key == Key::left) {
 		if(selection_.count) {
@@ -376,7 +388,7 @@ Widget* Textfield::key(const KeyEvent& ev) {
 			cursorPos_ = selection_.start + selection_.count;
 			endSelection();
 			updateCursor = true;
-		} else if(cursorPos_ < text_.utf32().length()) {
+		} else if(cursorPos_ < content_.length()) {
 			cursorPos_ += 1;
 			updateCursor = true;
 			showCursor(true);
@@ -385,15 +397,16 @@ Widget* Textfield::key(const KeyEvent& ev) {
 	} else if(ev.key == Key::del) {
 		auto tc = text_.change();
 		if(selection_.count) {
-			tc->utf32.erase(selection_.start, selection_.count);
+			content_.erase(selection_.start, selection_.count);
 			cursorPos_ = selection_.start;
 			updateCursor = true;
 			endSelection();
 			changed = true;
-		} else if(cursorPos_ < text_.utf32().length()) {
-			tc->utf32.erase(cursorPos_, 1);
+		} else if(cursorPos_ < content_.length()) {
+			content_.erase(cursorPos_, 1);
 			changed = true;
 		}
+		text_.change()->text = nytl::toUtf8(content_);
 	} else if(ev.key == Key::escape) {
 		focus(false);
 		if(onCancel) {
@@ -408,7 +421,7 @@ Widget* Textfield::key(const KeyEvent& ev) {
 		// start full selection
 		// when there is no text, has no effect
 		selection_.start = 0;
-		selection_.count = text_.utf32().size();
+		selection_.count = content_.size();
 		if(selection_.count) {
 			showCursor(false);
 			blinkCursor(false);
@@ -427,8 +440,10 @@ Widget* Textfield::key(const KeyEvent& ev) {
 			updateCursor = true;
 			auto tc = text_.change();
 			cursorPos_ = selection_.start;
-			tc->utf32.erase(selection_.start, selection_.count);
+			content_.erase(selection_.start, selection_.count);
 			endSelection();
+
+			text_.change()->text = nytl::toUtf8(content_);
 		}
 	}
 
@@ -440,7 +455,7 @@ Widget* Textfield::key(const KeyEvent& ev) {
 		onChange(*this);
 	}
 
-	dlg_assert(cursorPos_ <= text_.utf32().length());
+	dlg_assert(cursorPos_ <= content_.length());
 	return this;
 }
 
@@ -496,7 +511,7 @@ bool Textfield::update(double delta) {
 }
 
 void Textfield::updateCursorPosition() {
-	dlg_assert(cursorPos_ <= text_.utf32().length());
+	dlg_assert(cursorPos_ <= content_.length());
 	auto x = text_.position().x;
 	if(cursorPos_ > 0) {
 		auto b = text_.ithBounds(cursorPos_ - 1);
@@ -520,7 +535,7 @@ void Textfield::updateCursorPosition() {
 
 	auto cc = cursor_.change();
 	cc->size.x = style().cursorWidth;
-	cc->size.y = text_.font()->height();
+	cc->size.y = text_.height();
 	cc->position.x = x;
 	cc->position.y = text_.position().y;
 	cc->drawMode = {true, 0.f};
@@ -549,7 +564,7 @@ void Textfield::resetBlinkTime() {
 
 unsigned Textfield::boundaryAt(float x) {
 	auto ca = text_.charAt(x);
-	if(ca < text_.utf32().length()) {
+	if(ca < content_.length()) {
 		auto bounds = text_.ithBounds(ca);
 		auto into = (x - bounds.position.x) / bounds.size.x;
 		if(into >= 0.5f) {
@@ -561,19 +576,19 @@ unsigned Textfield::boundaryAt(float x) {
 }
 
 std::u32string_view Textfield::utf32() const {
-	return text_.utf32();
+	return content_;
 }
 
-std::string Textfield::utf8() const {
-	return text_.utf8();
+std::string_view Textfield::utf8() const {
+	return text_.text();
 }
 
 std::u32string_view Textfield::utf32Selected() const {
-	return {text_.utf32().data() + selection_.start, selection_.count};
+	return {content_.data() + selection_.start, selection_.count};
 }
 
-std::string Textfield::utf8Selected() const {
-	return toUtf8(utf32Selected());
+std::string_view Textfield::utf8Selected() const {
+	return selection_.text.text();
 }
 
 void Textfield::endSelection() {
@@ -620,15 +635,15 @@ void Textfield::pasteResponse(std::string_view str) {
 	auto u32 = nytl::toUtf32(str);
 
 	{
-		auto tc = text_.change();
 		if(selection_.count) {
 			cursorPos_ = selection_.start;
-			tc->utf32.erase(selection_.start, selection_.count);
+			content_.erase(selection_.start, selection_.count);
 			endSelection();
 		}
 
-		tc->utf32.insert(tc->utf32.begin() + cursorPos_,
+		content_.insert(content_.begin() + cursorPos_,
 			u32.begin(), u32.end());
+		text_.change()->text = nytl::toUtf8(content_);
 	}
 
 	cursorPos_ += u32.size();
@@ -647,7 +662,7 @@ Widget* Textfield::mouseWheel(const MouseWheelEvent& ev) {
 	if(ev.distance.x) {
 		// divide offset by font height?
 		auto next = cursorPos_ - factor * ev.distance.x;
-		cursorPos_ = std::clamp<int>(next, 0, text_.utf32().size());
+		cursorPos_ = std::clamp<int>(next, 0, content_.size());
 		updateCursorPosition();
 	}
 

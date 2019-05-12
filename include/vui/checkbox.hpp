@@ -5,6 +5,7 @@
 #include <vui/style.hpp>
 
 #include <rvg/shapes.hpp>
+#include <functional>
 
 namespace vui {
 
@@ -41,7 +42,7 @@ protected:
 	Cursor cursor() const override;
 
 protected:
-	const CheckboxStyle* style_;
+	const CheckboxStyle* style_ {};
 	rvg::RectShape bg_;
 	rvg::RectShape fg_;
 	bool checked_ {};

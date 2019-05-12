@@ -173,7 +173,7 @@ LabeledButton::LabeledButton(Gui& gui, ContainerWidget* p, const Rect2f& b,
 
 LabeledButton::LabeledButton(Gui& gui, ContainerWidget* p,
 		std::string_view label) : BasicButton(gui, p) {
-	label_ = {context(), label, gui.font(), {}};
+	label_ = {context(), {}, std::string(label), gui.font(), 14.f};
 	fgPaint_ = {context(), {}};
 }
 
@@ -195,9 +195,10 @@ void LabeledButton::reset(const LabeledButtonStyle& style,
 	// analyze
 	auto pos = bounds.position;
 	auto size = bounds.size;
-	auto str = ostr ? nytl::toUtf32(*ostr) : label_.utf32();
-	auto& font = style.font ? *style.font : gui().font();
-	auto textSize = nytl::Vec2f {font.width(str), font.height()};
+	auto str = ostr ? *ostr : label_.text();
+	auto& font = style.font.font ? *style.font.font : gui().font();
+	auto fheight = style.font.height;
+	auto textSize = nytl::Vec2f {font.width(str, fheight), fheight};
 	auto textPos = style.padding; // local
 
 	if(size.x != autoSize) {
@@ -215,8 +216,8 @@ void LabeledButton::reset(const LabeledButtonStyle& style,
 	// change
 	auto tc = label_.change();
 	tc->position = pos + textPos;
-	tc->font = &font;
-	tc->utf32 = str;
+	tc->font = font;
+	tc->text = str;
 
 	// propagate
 	style_ = &style;

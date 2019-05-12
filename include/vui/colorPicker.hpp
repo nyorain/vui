@@ -115,10 +115,10 @@ protected:
 	void clicked(const MouseButtonEvent&) override;
 
 protected:
-	const ColorButtonStyle* style_;
+	const ColorButtonStyle* style_ {};
 	Paint colorPaint_;
 	RectShape color_;
-	Pane* pane_;
+	Pane* pane_ {};
 };
 
 } // namespace vui

@@ -66,9 +66,13 @@ void Container::relayout() {
 	auto guad = nytl::ScopeGuard {[&]{ relayouting_ = false; }};
 
 	// currently width of container is never changed so we only
-	// have to correct position
+	// have to correct position.y
 	auto y = position().y;
 	for(auto& w : widgets_) {
+		// if(w->hidden()) {
+		// 	continue;
+		// }
+
 		if(y != w->position().y) {
 			w->position({w->position().x, y});
 		}
@@ -111,6 +115,8 @@ void Container::height(float delta) {
 	dlg_assert(s.y > 0);
 	Container::size(s); // will refresh all child scissors
 	// parent()->relayout();
+	// TODO
+	const_cast<Panel&>(panel()).relayout();
 }
 
 void Container::hide(bool h) {
@@ -145,6 +151,9 @@ void Container::open(bool open) {
 	if(size != this->size()) {
 		Container::size(size);
 		// parent()->relayout();
+
+		// TODO
+		const_cast<Panel&>(panel()).relayout();
 	}
 }
 
@@ -184,11 +193,12 @@ Panel::Panel(Gui& gui, ContainerWidget* p, const Vec2f& pos, float width,
 		Container(gui, p), rowHeight_(rowHeight), nameWidth_(nameWidth) {
 
 	if(rowHeight_ == autoSize) {
-		rowHeight_ = 5 + 1.5 * gui.font().height();
+		// rowHeight_ = 5 + 1.5 * gui.font().height();
+		rowHeight_ = 30;
 	}
 
 	if(nameWidth_ == autoSize) {
-		nameWidth_ = gui.font().width("Rather long name");
+		nameWidth_ = gui.font().width("Rather long name", fontHeight());
 	}
 
 	if(width == autoSize) {
@@ -218,7 +228,7 @@ Panel::Panel(Gui& gui, ContainerWidget* p, const Vec2f& pos, float width,
 	// TODO: parameterize constants
 	auto cp = [&](auto& col) { return rvg::colorPaint(col); };
 
-	auto yoff = ((rowHeight_ - 4.f) - gui.font().height()) / 2.f;
+	auto yoff = ((rowHeight_ - 4.f) - fontHeight()) / 2.f;
 	auto xoff = std::max(yoff * 1.5f, 2.f);
 
 	styles_.textfield = gui.styles().textfield;
@@ -377,7 +387,7 @@ void Folder::height(float h) {
 // Controller
 Controller::Controller(Container& p, std::string_view name)
 		: ContainerWidget(p.gui(), &p) {
-	name_ = {context(), name, gui().font(), {}};
+	name_ = {context(), {}, std::string(name), gui().font(), 14.f};
 	classifier_ = {context(), {}, {false, 3.f}};
 	bg_ = {context(), {}, {}, {true, 0.f}};
 	bottomLine_ = {context(), {}, {false, lineHeight}};
@@ -396,13 +406,13 @@ void Controller::reset(const Rect2f& bounds,
 	dlg_assert(size.x != autoSize && size.y != autoSize);
 
 	// change
-	auto ny = (size.y - font.height()) / 2;
+	auto ny = (size.y - panel().fontHeight()) / 2;
 	auto nameOff = Vec {classifierWidth + std::max(ny, classifierWidth), ny};
 	auto nc = name_.change();
-	nc->font = &font;
+	nc->font = font;
 	nc->position = pos + nameOff;
 	if(oname) {
-		nc->utf8(*oname);
+		nc->text = *oname;
 	}
 
 	if(bc) {
@@ -613,7 +623,9 @@ Widget* Checkbox::mouseButton(const MouseButtonEvent& ev) {
 			pressed_ = false;
 			if(hovered_) {
 				checkbox().toggle();
-				checkbox().onToggle(checkbox());
+				if(checkbox().onToggle) {
+					checkbox().onToggle(checkbox());
+				}
 			}
 			requestRedraw();
 		}
@@ -629,7 +641,7 @@ Cursor Checkbox::cursor() const {
 // Label
 Label::Label(Container& p, const Rect2f& b, std::string_view name,
 		std::string_view label) : Controller(p, name) {
-	label_ = {context(), label, gui().font(), {}};
+	label_ = {context(), {}, std::string(label), gui().font(), 14.f};
 	bounds(b);
 }
 
@@ -638,7 +650,7 @@ const rvg::Paint& Label::classPaint() const {
 }
 
 void Label::bounds(const Rect2f& b) {
-	auto y = (b.size.y - label_.font()->height() - 1) / 2;
+	auto y = (b.size.y - panel().fontHeight() - 1) / 2;
 	auto lc = label_.change();
 	lc->position = b.position + Vec2f {panel().nameWidth() + 4, y};
 	Controller::bounds(b);
@@ -650,7 +662,7 @@ void Label::hide(bool hide) {
 
 void Label::label(std::string_view label) {
 	auto lc = label_.change();
-	lc->utf8(label);
+	lc->text = label;
 }
 
 void Label::draw(vk::CommandBuffer cb) const {

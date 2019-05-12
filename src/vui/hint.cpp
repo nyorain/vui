@@ -20,7 +20,7 @@ Hint::Hint(Gui& gui, ContainerWidget* p, const Rect2f& bounds,
 
 	bg_ = {context()};
 	bg_.disable(true);
-	text_ = {context(), U"", gui.font(), {}};
+	text_ = {context(), {}, "", gui.font(), 14.f};
 	text_.disable(true);
 
 	reset(xstyle, bounds, false, text);
@@ -36,11 +36,12 @@ void Hint::reset(const HintStyle& style, const Rect2f& bounds, bool force,
 	}
 
 	// analyze
-	auto str = ostr ? nytl::toUtf32(*ostr) : text_.utf32();
+	auto str = ostr ? *ostr : text_.text();
 	auto pos = bounds.position;
 	auto size = bounds.size;
-	auto& font = style.font ? *style.font : gui().font();
-	auto textSize = nytl::Vec2f {font.width(str), font.height()};
+	auto& font = style.font.font ? *style.font.font : gui().font();
+	auto fheight = style.font.height;
+	auto textSize = nytl::Vec2f {font.width(str, fheight), fheight};
 	auto textPos = style.padding; // local
 
 	if(size.x != autoSize) {
@@ -58,8 +59,8 @@ void Hint::reset(const HintStyle& style, const Rect2f& bounds, bool force,
 	// change
 	auto tc = text_.change();
 	tc->position = pos + textPos;
-	tc->font = &font;
-	tc->utf32 = str;
+	tc->font = font;
+	tc->text = str;
 
 	auto bgc = bg_.change();
 	bgc->drawMode = {true, style.bgStroke ? 2.f : 0.f};

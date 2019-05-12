@@ -34,8 +34,8 @@
 #include <ny/cursor.hpp>
 #include <ny/dataExchange.hpp>
 
-#include <vpp/instance.hpp>
-#include <vpp/debug.hpp>
+#include <vpp/handles.hpp>
+#include <vpp/debugReport.hpp>
 #include <vpp/formats.hpp>
 #include <vpp/physicalDevice.hpp>
 
@@ -48,8 +48,8 @@
 #include <array>
 #include <thread>
 
-// static const std::string baseResPath = "../";
-static const std::string baseResPath = "../subprojects/vui/";
+static const std::string baseResPath = "../";
+// static const std::string baseResPath = "../subprojects/vui/";
 
 // using namespace vui;
 using namespace nytl::vec::operators;
@@ -223,11 +223,11 @@ int main() {
 	float priorities[1] = {0.0};
 
 	auto phdevs = vk::enumeratePhysicalDevices(instance);
-	auto phdev = vpp::choose(phdevs, instance, vkSurf);
+	auto phdev = vpp::choose(phdevs, vkSurf);
 	dlg_info("using: {}", vpp::description(phdev, "\n\t"));
 
 	auto queueFlags = vk::QueueBits::compute | vk::QueueBits::graphics;
-	int queueFam = vpp::findQueueFamily(phdev, instance, vkSurf, queueFlags);
+	int queueFam = vpp::findQueueFamily(phdev, vkSurf, queueFlags);
 
 	vk::DeviceCreateInfo devInfo;
 	vk::DeviceQueueCreateInfo queueInfo({}, queueFam, 1, priorities);
@@ -269,13 +269,11 @@ int main() {
 
 	auto fontHeight = 14;
 	rvg::FontAtlas atlas(ctx);
-	rvg::Font lsFont(atlas, baseResPath + "example/LiberationSans-Regular.ttf",
-		fontHeight);
-	atlas.bake(ctx);
+	rvg::Font lsFont(atlas, baseResPath + "example/LiberationSans-Regular.ttf");
 
 	auto string = "yo, whaddup";
-	rvg::Text text(ctx, string, lsFont, {0, 0});
-	auto textWidth = lsFont.width(string);
+	rvg::Text text(ctx, {0, 0}, string, lsFont, fontHeight);
+	auto textWidth = lsFont.width(string, fontHeight);
 
 	// svg path
 	// auto svgSubpath = rvg::parseSvgSubpath({300, 200},

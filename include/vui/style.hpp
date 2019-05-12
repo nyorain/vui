@@ -7,6 +7,11 @@
 
 namespace vui {
 
+struct SizedFont {
+	const Font* font {};
+	float height {14.f};
+};
+
 struct ButtonDraw {
 	rvg::PaintData bg;
 	std::optional<rvg::PaintData> bgStroke {};
@@ -25,7 +30,7 @@ struct BasicButtonStyle {
 struct LabeledButtonStyle {
 	BasicButtonStyle* basic {};
 	Vec2f padding = Vec {20.f, 10.f};
-	const Font* font {};
+	SizedFont font {};
 };
 
 struct TextfieldDraw {
@@ -44,7 +49,7 @@ struct TextfieldStyle {
 	float cursorWidth = 1.f;
 	Vec2f padding = Vec {10.f, 10.f};
 	std::array<float, 4> rounding = {};
-	const Font* font {};
+	SizedFont font {};
 };
 
 struct PaneStyle {
@@ -66,7 +71,7 @@ struct HintStyle {
 	rvg::Paint* bgStroke {}; /// (optional) background stroke (border)
 	Vec2f padding {5.f, 5.f}; /// padding, distance from label to border
 	std::array<float, 4> rounding {3.f, 3.f, 3.f, 3.f};
-	const Font* font {}; /// Font to use, falls back to guis default font
+	SizedFont font {}; /// Font to use, falls back to guis default font
 };
 
 struct ColorPickerStyle {

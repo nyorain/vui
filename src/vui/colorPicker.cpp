@@ -96,6 +96,7 @@ void ColorPicker::reset(const ColorPickerStyle& style, const Rect2f& bounds,
 	// hue
 	auto hc = hue_.change();
 	hc->points.clear();
+	hc->drawMode.color.points.clear();
 	hc->drawMode.stroke = style.hueWidth;
 	hc->drawMode.color.stroke = true;
 

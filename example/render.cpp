@@ -7,7 +7,7 @@
 #include <nytl/mat.hpp>
 #include <vpp/vk.hpp>
 #include <vpp/util/file.hpp>
-#include <vpp/renderPass.hpp>
+#include <vpp/handles.hpp>
 #include <vpp/swapchain.hpp>
 #include <vpp/formats.hpp>
 
@@ -17,9 +17,7 @@ vpp::RenderPass createRenderPass(const vpp::Device&, vk::Format,
 	vk::SampleCountBits);
 
 Renderer::Renderer(const RendererCreateInfo& info) :
-	DefaultRenderer(info.present), sampleCount_(info.samples),
-		clearColor_(info.clearColor) {
-
+		sampleCount_(info.samples), clearColor_(info.clearColor) {
 	vpp::SwapchainPreferences prefs {};
 	if(info.vsync) {
 		prefs.presentMode = vk::PresentModeKHR::fifo; // vsync
@@ -28,7 +26,7 @@ Renderer::Renderer(const RendererCreateInfo& info) :
 	scInfo_ = vpp::swapchainCreateInfo(info.dev, info.surface,
 		{info.size[0], info.size[1]}, prefs);
 	renderPass_ = createRenderPass(info.dev, scInfo_.imageFormat, samples());
-	vpp::DefaultRenderer::init(renderPass_, scInfo_);
+	vpp::DefaultRenderer::init(renderPass_, scInfo_, info.present);
 }
 
 void Renderer::createMultisampleTarget(const vk::Extent2D& size)

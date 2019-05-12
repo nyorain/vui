@@ -8,9 +8,7 @@
 #include <vpp/queue.hpp> // vpp::Queue
 #include <vpp/buffer.hpp> // vpp::Buffer
 #include <vpp/renderer.hpp> // vpp::DefaultRenderer
-#include <vpp/commandBuffer.hpp>
-#include <vpp/renderPass.hpp>
-#include <vpp/framebuffer.hpp>
+#include <vpp/handles.hpp>
 #include <vpp/queue.hpp>
 #include <vpp/vk.hpp>
 #include <nytl/vec.hpp>

@@ -106,8 +106,8 @@ protected:
 	Widget& add(std::unique_ptr<Widget>) override;
 
 protected:
-	const PaneStyle* style_;
-	RectShape bg_;
+	const PaneStyle* style_ {};
+	RectShape bg_ {};
 };
 
 } // namespace vui

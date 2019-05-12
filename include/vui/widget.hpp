@@ -184,9 +184,9 @@ protected:
 
 private:
 	Gui& gui_; // associated gui
-	Rect2f bounds_; // global bounds
+	Rect2f bounds_ {}; // global bounds
 	ContainerWidget* parent_ {}; // optional parent
-	mutable rvg::Scissor scissor_; // mutable since only created when needed
+	mutable rvg::Scissor scissor_ {}; // mutable since only created when needed
 };
 
 } // namespace vui

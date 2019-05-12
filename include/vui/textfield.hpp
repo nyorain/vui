@@ -36,13 +36,13 @@ public:
 		std::string_view start, const TextfieldStyle&);
 
 	/// Return the current textfield content.
+	std::string_view utf8() const;
 	std::u32string_view utf32() const;
-	std::string utf8() const;
 
 	/// Returns the current selected string.
 	/// If none is selected, an empty string is returned.
+	std::string_view utf8Selected() const;
 	std::u32string_view utf32Selected() const;
-	std::string utf8Selected() const;
 
 	/// Sets the content of this textfield.
 	/// Note that this should not be done while it is editable since
@@ -114,6 +114,7 @@ protected:
 	Paint fgPaint_;
 
 	Text text_;
+	std::u32string content_;
 
 	unsigned cursorPos_ {}; // the character before which it rests
 	bool focus_ {false};
@@ -126,8 +127,8 @@ protected:
 		RectShape bg;
 		Text text;
 
-		unsigned start; // character start
-		unsigned count; // count of characters
+		unsigned start {}; // character start
+		unsigned count {}; // count of characters
 	} selection_ {};
 };
 
