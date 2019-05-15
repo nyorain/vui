@@ -515,7 +515,7 @@ void Textfield::updateCursorPosition() {
 	auto x = text_.position().x;
 	if(cursorPos_ > 0) {
 		auto b = text_.ithBounds(cursorPos_ - 1);
-		x += b.position.x + b.size.x;
+		x = b.position.x + b.size.x;
 	}
 
 	// scrolling

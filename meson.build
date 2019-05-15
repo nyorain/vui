@@ -1,7 +1,7 @@
 project('vui', ['cpp', 'c'],
 	license: 'BSL',
 	version: '0.1.0',
-	meson_version: '>=0.43',
+	meson_version: '>=0.46',
 	default_options: [
 		'cpp_std=c++1z',
 		'c_std=c99',
@@ -71,9 +71,9 @@ endif
 pkg = import('pkgconfig')
 pkg_dirs = ['.']
 pkg.generate(
+	vui_lib,
 	name: 'vui',
 	requires: ['rvg'],
-	libraries: vui_lib,
 	filebase: 'vui',
 	subdirs: pkg_dirs,
 	version: meson.project_version(),
