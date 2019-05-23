@@ -116,7 +116,7 @@ void Container::height(float delta) {
 	Container::size(s); // will refresh all child scissors
 	// parent()->relayout();
 	// TODO
-	const_cast<Panel&>(panel()).relayout();
+	// const_cast<Panel&>(panel()).relayout();
 }
 
 void Container::hide(bool h) {
@@ -153,7 +153,7 @@ void Container::open(bool open) {
 		// parent()->relayout();
 
 		// TODO
-		const_cast<Panel&>(panel()).relayout();
+		// const_cast<Panel&>(panel()).relayout();
 	}
 }
 
