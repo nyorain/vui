@@ -173,7 +173,7 @@ LabeledButton::LabeledButton(Gui& gui, ContainerWidget* p, const Rect2f& b,
 
 LabeledButton::LabeledButton(Gui& gui, ContainerWidget* p,
 		std::string_view label) : BasicButton(gui, p) {
-	label_ = {context(), {}, std::string(label), gui.font(), 14.f};
+	label_ = {context(), {}, std::string(label), gui.font(), 1.f};
 	fgPaint_ = {context(), {}};
 }
 
@@ -218,6 +218,7 @@ void LabeledButton::reset(const LabeledButtonStyle& style,
 	tc->position = pos + textPos;
 	tc->font = font;
 	tc->text = str;
+	tc->height = fheight;
 
 	// propagate
 	style_ = &style;

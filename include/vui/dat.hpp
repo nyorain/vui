@@ -83,7 +83,7 @@ public:
 	/// row height based on the used font size.
 	/// nameWidth is the uniform width of the naming label in controllers.
 	/// bounds.size.y should be set to autoSize.
-	Panel(Gui&, ContainerWidget*, const Vec2f& pos, float width,
+	Panel(Gui&, ContainerWidget*, const Vec2f& pos, float width = autoSize,
 		float nameWidth = autoSize, float rowHeight = autoSize);
 
 	Widget& add(std::unique_ptr<Widget>) override;
@@ -95,7 +95,7 @@ public:
 
 	float rowHeight() const { return rowHeight_; }
 	float nameWidth() const { return nameWidth_; }
-	float fontHeight() const { return std::floor(rowHeight() * 0.6f); }
+	float fontHeight() const { return std::floor((rowHeight() - 5.f) / 1.5f); }
 
 	// for controllers
 	const auto& paints() const { return paints_; }

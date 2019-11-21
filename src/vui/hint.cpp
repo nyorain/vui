@@ -20,7 +20,7 @@ Hint::Hint(Gui& gui, ContainerWidget* p, const Rect2f& bounds,
 
 	bg_ = {context()};
 	bg_.disable(true);
-	text_ = {context(), {}, "", gui.font(), 14.f};
+	text_ = {context(), {}, "", gui.font(), 1.f};
 	text_.disable(true);
 
 	reset(xstyle, bounds, false, text);
@@ -61,6 +61,7 @@ void Hint::reset(const HintStyle& style, const Rect2f& bounds, bool force,
 	tc->position = pos + textPos;
 	tc->font = font;
 	tc->text = str;
+	tc->height = fheight;
 
 	auto bgc = bg_.change();
 	bgc->drawMode = {true, style.bgStroke ? 2.f : 0.f};

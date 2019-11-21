@@ -41,8 +41,8 @@ Textfield::Textfield(Gui& gui, ContainerWidget* p) : Widget(gui, p) {
 	selection_.bg = {context(), {}, {}, {true, 0.f}};
 	selection_.bg.disable(true);
 
-	text_ = {context(), {}, "", gui.font(), 14.f};
-	selection_.text = {context(), {}, "", gui.font(), 14.f};
+	text_ = {context(), {}, "", gui.font(), 1.f};
+	selection_.text = {context(), {}, "", gui.font(), 1.f};
 	selection_.text.disable(true);
 
 	cursor_ = {context(), {}, {}, {true, 0.f}};
@@ -101,6 +101,7 @@ void Textfield::reset(const TextfieldStyle& style, const Rect2f& bounds,
 		tc->position = pos + textPos;
 		tc->text = string;
 		tc->font = font;
+		tc->height = style.font.height;
 	}
 
 	if(ostring) {

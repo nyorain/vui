@@ -34,6 +34,7 @@ Gui::Gui(Context& ctx, const Font& font, GuiListener& listener)
 Gui::Gui(Context& ctx, const Font& font, Styles&& s, GuiListener& listener)
 		: ContainerWidget(*this, nullptr),  context_(ctx), font_(font),
 			listener_(listener), styles_(std::move(s)) {
+	transform_ = {ctx};
 }
 
 void Gui::transform(const nytl::Mat4f& mat) {
@@ -95,7 +96,7 @@ void Gui::focus(bool gained) {
 void Gui::mouseOver(bool gained) {
 	ContainerWidget::mouseOver(gained);
 	if(!gained && mouseOver()) {
-		listener().focus(mouseOver(), nullptr);
+		listener().mouseOver(mouseOver(), nullptr);
 		globalMouseOver_ = nullptr;
 	}
 }

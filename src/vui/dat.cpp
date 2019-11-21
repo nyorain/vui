@@ -194,15 +194,16 @@ Panel::Panel(Gui& gui, ContainerWidget* p, const Vec2f& pos, float width,
 
 	if(rowHeight_ == autoSize) {
 		// rowHeight_ = 5 + 1.5 * gui.font().height();
-		rowHeight_ = 30;
+		rowHeight_ = 5 + 1.5 * gui.defaultFontHeight;
+		// rowHeight_ = 30;
 	}
 
 	if(nameWidth_ == autoSize) {
-		nameWidth_ = gui.font().width("Rather long name", fontHeight());
+		nameWidth_ = gui.font().width(": A rather long name :", fontHeight());
 	}
 
 	if(width == autoSize) {
-		width = nameWidth_ * 3;
+		width = nameWidth_ * 2.5f;
 	}
 
 	Widget::bounds({pos, {width, rowHeight_}});
@@ -387,7 +388,7 @@ void Folder::height(float h) {
 // Controller
 Controller::Controller(Container& p, std::string_view name)
 		: ContainerWidget(p.gui(), &p) {
-	name_ = {context(), {}, std::string(name), gui().font(), 14.f};
+	name_ = {context(), {}, std::string(name), gui().font(), p.gui().defaultFontHeight};
 	classifier_ = {context(), {}, {false, 3.f}};
 	bg_ = {context(), {}, {}, {true, 0.f}};
 	bottomLine_ = {context(), {}, {false, lineHeight}};
@@ -641,7 +642,7 @@ Cursor Checkbox::cursor() const {
 // Label
 Label::Label(Container& p, const Rect2f& b, std::string_view name,
 		std::string_view label) : Controller(p, name) {
-	label_ = {context(), {}, std::string(label), gui().font(), 14.f};
+	label_ = {context(), {}, std::string(label), gui().font(), p.gui().defaultFontHeight};
 	bounds(b);
 }
 

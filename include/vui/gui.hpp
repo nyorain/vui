@@ -92,6 +92,9 @@ public:
 	static constexpr auto hintOffset = Vec {20.f, 5.f}; // seconds
 	static constexpr auto blinkTime = 0.5f; // seconds
 
+	// TODO! clean that mess up
+	float defaultFontHeight = 14.f;
+
 public:
 	Gui(Context& context, const Font& font,
 		GuiListener& listener = GuiListener::nop());
