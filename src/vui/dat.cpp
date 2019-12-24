@@ -37,6 +37,9 @@ const auto folderLine = rvg::Color {255u, 255u, 255u, 5u};
 
 } // namespace colors
 
+// TODO: the whole relayout thing can probably be done easier...
+//   without the Container::relayouting_ mess, that's a hack
+//   for recursive calls at the moment. Clean that up!
 // TODO: assert expected sizes (e.g. in constructors/bounds)
 // assert(bounds.size.y == panel().rowHeight());
 // don't expose bounds publicly?
@@ -116,7 +119,7 @@ void Container::height(float delta) {
 	Container::size(s); // will refresh all child scissors
 	// parent()->relayout();
 	// TODO
-	const_cast<Panel&>(panel()).relayout();
+	// const_cast<Panel&>(panel()).relayout();
 }
 
 void Container::hide(bool h) {
@@ -153,7 +156,7 @@ void Container::open(bool open) {
 		// parent()->relayout();
 
 		// TODO
-		const_cast<Panel&>(panel()).relayout();
+		// const_cast<Panel&>(panel()).relayout();
 	}
 }
 

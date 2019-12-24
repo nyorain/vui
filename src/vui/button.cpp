@@ -198,7 +198,7 @@ void LabeledButton::reset(const LabeledButtonStyle& style,
 	auto str = ostr ? *ostr : label_.text();
 	auto& font = style.font.font ? *style.font.font : gui().font();
 	auto fheight = style.font.height;
-	auto textSize = nytl::Vec2f {font.width(str, fheight), fheight};
+	auto textSize = font.bounds(str, fheight).size;
 	auto textPos = style.padding; // local
 
 	if(size.x != autoSize) {
