@@ -14,10 +14,6 @@
 #include <unordered_set>
 #include <optional>
 
-// TODO
-// Make Gui::update return whether the gui has changed visually in any way and
-// needs to be re-rendered.
-
 namespace vui {
 
 /// Native cursor types.
@@ -51,6 +47,8 @@ public:
 	static GuiListener& nop();
 
 public:
+	virtual ~GuiListener() = default;
+
 	/// Called when a widget wants to copy a string to the clipboard.
 	virtual void copy(std::string_view) {}
 
